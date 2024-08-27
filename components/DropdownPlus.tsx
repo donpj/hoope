@@ -19,7 +19,7 @@ const DropdownPlus = () => {
           <DropdownMenu.Item
             key="board"
             onSelect={() =>
-              router.push("(authenticated)/(tabs)/boards/new-board")
+              router.push("/(authenticated)/(tabs)/boards/new-board")
             }
           >
             <DropdownMenu.ItemTitle>Create a board</DropdownMenu.ItemTitle>
@@ -45,7 +45,7 @@ const DropdownPlus = () => {
         <DropdownMenu.Item
           key="templates"
           onSelect={() =>
-            router.push("(authenticated)/(tabs)/boards/templates")
+            router.push("/(authenticated)/(tabs)/boards/templates")
           }
         >
           <DropdownMenu.ItemTitle>Browse Templates</DropdownMenu.ItemTitle>
