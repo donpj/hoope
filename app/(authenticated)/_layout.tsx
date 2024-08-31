@@ -1,11 +1,11 @@
-//import { usePush } from "@/hooks/usePush";
+import { usePush } from "@/hooks/usePush";
 import { Ionicons } from "@expo/vector-icons";
 import { DefaultTheme } from "@react-navigation/native";
 import { Stack, useRouter } from "expo-router";
 import { TouchableOpacity } from "react-native";
 
 const Layout = () => {
-  //usePush();
+  usePush();
   const router = useRouter();
 
   return (
@@ -20,7 +20,7 @@ const Layout = () => {
         name="board/settings"
         options={{
           presentation: "modal",
-          title: "Board Menu",
+          title: "Project Menu",
           headerLeft: () => (
             <TouchableOpacity
               onPress={() => router.back()}
@@ -39,7 +39,7 @@ const Layout = () => {
         name="board/invite"
         options={{
           presentation: "modal",
-          title: "Manage board members",
+          title: "Manage project members",
           headerLeft: () => (
             <TouchableOpacity
               onPress={() => router.back()}

@@ -4,6 +4,7 @@ import { BottomSheetView } from "@gorhom/bottom-sheet";
 import { Image, Text, TouchableOpacity, StyleSheet } from "react-native";
 import { useWarmUpBrowser } from "@/hooks/useWarmUpBrowser";
 import { useOAuth, useSignIn, useSignUp } from "@clerk/clerk-expo";
+import { useRouter } from "expo-router";
 
 const LOGIN_OPTIONS = [
   {
@@ -11,20 +12,11 @@ const LOGIN_OPTIONS = [
     icon: require("@/assets/images/login/google.png"),
     strategy: AuthStrategy.Google,
   },
-  {
-    text: "Continue with Microsoft",
-    icon: require("@/assets/images/login/microsoft.png"),
-    strategy: AuthStrategy.Microsoft,
-  },
+
   {
     text: "Continue with Apple",
     icon: require("@/assets/images/login/apple.png"),
     strategy: AuthStrategy.Apple,
-  },
-  {
-    text: "Continue with Slack",
-    icon: require("@/assets/images/login/slack.png"),
-    strategy: AuthStrategy.Slack,
   },
 ];
 
@@ -34,20 +26,24 @@ interface AuthModalProps {
 
 const AuthModal = ({ authType }: AuthModalProps) => {
   useWarmUpBrowser();
+  const router = useRouter();
   const { startOAuthFlow: googleAuth } = useOAuth({
     strategy: AuthStrategy.Google,
-  });
-  const { startOAuthFlow: microsoftAuth } = useOAuth({
-    strategy: AuthStrategy.Microsoft,
-  });
-  const { startOAuthFlow: slackAuth } = useOAuth({
-    strategy: AuthStrategy.Slack,
   });
   const { startOAuthFlow: appleAuth } = useOAuth({
     strategy: AuthStrategy.Apple,
   });
   const { signUp, setActive } = useSignUp();
   const { signIn } = useSignIn();
+
+  // Navigate to the appropriate screen based on the authType (login or sign-up)
+  const navigateToEmailAuth = () => {
+    if (authType === ModalType.Login) {
+      router.push("/authentication/login"); // Navigate to Login screen
+    } else if (authType === ModalType.SignUp) {
+      router.push("/authentication/register"); // Navigate to Sign-Up screen
+    }
+  };
 
   const onSelectAuth = async (strategy: AuthStrategy) => {
     console.log(`Selected auth strategy: ${strategy}`);
@@ -59,64 +55,26 @@ const AuthModal = ({ authType }: AuthModalProps) => {
 
     const selectedAuth = {
       [AuthStrategy.Google]: googleAuth,
-      [AuthStrategy.Microsoft]: microsoftAuth,
-      [AuthStrategy.Slack]: slackAuth,
       [AuthStrategy.Apple]: appleAuth,
     }[strategy];
 
-    // https://clerk.com/docs/custom-flows/oauth-connections#o-auth-account-transfer-flows
-    // If the user has an account in your application, but does not yet
-    // have an OAuth account connected to it, you can transfer the OAuth
-    // account to the existing user account.
-    const userExistsButNeedsToSignIn =
-      signUp.verifications.externalAccount.status === "transferable" &&
-      signUp.verifications.externalAccount.error?.code ===
-        "external_account_exists";
+    try {
+      const { createdSessionId, setActive, authSessionResult } =
+        await selectedAuth();
+      console.log("OAuth flow result:", authSessionResult);
 
-    if (userExistsButNeedsToSignIn) {
-      const res = await signIn.create({ transfer: true });
-
-      if (res.status === "complete") {
-        setActive({
-          session: res.createdSessionId,
-        });
+      if (createdSessionId) {
+        setActive!({ session: createdSessionId });
+        console.log("OAuth success standard");
       }
-    }
-
-    const userNeedsToBeCreated =
-      signIn.firstFactorVerification.status === "transferable";
-
-    if (userNeedsToBeCreated) {
-      const res = await signUp.create({
-        transfer: true,
-      });
-
-      if (res.status === "complete") {
-        setActive({
-          session: res.createdSessionId,
-        });
-      }
-    } else {
-      // If the user has an account in your application
-      // and has an OAuth account connected to it, you can sign them in.
-      try {
-        const { createdSessionId, setActive, authSessionResult } =
-          await selectedAuth();
-        console.log("OAuth flow result:", authSessionResult);
-
-        if (createdSessionId) {
-          setActive!({ session: createdSessionId });
-          console.log("OAuth success standard");
-        }
-      } catch (err) {
-        console.error("OAuth error", err);
-      }
+    } catch (err) {
+      console.error("OAuth error", err);
     }
   };
 
   return (
     <BottomSheetView style={[styles.modalContainer]}>
-      <TouchableOpacity style={styles.modalBtn}>
+      <TouchableOpacity style={styles.modalBtn} onPress={navigateToEmailAuth}>
         <Ionicons name="mail-outline" size={20} />
         <Text style={styles.btnText}>
           {authType === ModalType.Login ? "Log in" : "Sign up"} with Email
@@ -149,6 +107,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     borderColor: "#fff",
     borderWidth: 1,
+    marginTop: 10,
   },
   btnIcon: {
     width: 20,

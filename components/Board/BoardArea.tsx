@@ -1,14 +1,20 @@
-import ListStart from '@/components/Board/ListStart';
-import ListView from '@/components/Board/ListView';
-import { Colors } from '@/constants/Colors';
-import { useSupabase } from '@/context/SupabaseContext';
-import { Board, TaskList, TaskListFake } from '@/types/enums';
-import { useEffect, useRef, useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, useWindowDimensions } from 'react-native';
-import { useSharedValue } from 'react-native-reanimated';
-import Carousel, { ICarouselInstance } from 'react-native-reanimated-carousel';
-import { Pagination } from 'react-native-reanimated-carousel';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import ListStart from "@/components/Board/ListStart";
+import ListView from "@/components/Board/ListView";
+import { Colors } from "@/constants/Colors";
+import { useSupabase } from "@/context/SupabaseContext";
+import { Board, TaskList, TaskListFake } from "@/types/enums";
+import { useEffect, useRef, useState } from "react";
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  useWindowDimensions,
+} from "react-native";
+import { useSharedValue } from "react-native-reanimated";
+import Carousel, { ICarouselInstance } from "react-native-reanimated-carousel";
+import { Pagination } from "react-native-reanimated-carousel";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 export interface BoardAreaProps {
   board?: Board;
@@ -19,7 +25,9 @@ const BoardArea = ({ board }: BoardAreaProps) => {
   const { getBoardLists, addBoardList } = useSupabase();
   const [startListActive, setStartListActive] = useState(false);
   const scrollOffsetValue = useSharedValue<number>(0);
-  const [data, setData] = useState<Array<TaskList | TaskListFake>>([{ id: undefined }]);
+  const [data, setData] = useState<Array<TaskList | TaskListFake>>([
+    { id: undefined },
+  ]);
   const progress = useSharedValue<number>(0);
   const ref = useRef<ICarouselInstance>(null);
 
@@ -54,7 +62,7 @@ const BoardArea = ({ board }: BoardAreaProps) => {
   };
 
   return (
-    <SafeAreaView style={{ flex: 1 }} edges={['bottom']}>
+    <SafeAreaView style={{ flex: 1 }} edges={["bottom"]}>
       <Carousel
         width={width}
         height={height}
@@ -67,20 +75,33 @@ const BoardArea = ({ board }: BoardAreaProps) => {
         renderItem={({ index, item }: any) => (
           <>
             {item.id && (
-              <ListView key={index} taskList={item} onDelete={() => onListDeleted(item.id)} />
+              <ListView
+                key={index}
+                taskList={item}
+                onDelete={() => onListDeleted(item.id)}
+              />
             )}
             {item.id === undefined && (
-              <View key={index} style={{ paddingTop: 20, paddingHorizontal: 30 }}>
+              <View
+                key={index}
+                style={{ paddingTop: 20, paddingHorizontal: 30 }}
+              >
                 {!startListActive && (
                   <TouchableOpacity
                     onPress={() => setStartListActive(true)}
-                    style={styles.listAddBtn}>
-                    <Text style={{ color: Colors.fontLight, fontSize: 18 }}>Add list</Text>
+                    style={styles.listAddBtn}
+                  >
+                    <Text style={{ color: Colors.fontLight, fontSize: 18 }}>
+                      Add list
+                    </Text>
                   </TouchableOpacity>
                 )}
 
                 {startListActive && (
-                  <ListStart onCancel={() => setStartListActive(false)} onSave={onSaveNewList} />
+                  <ListStart
+                    onCancel={() => setStartListActive(false)}
+                    onSave={onSaveNewList}
+                  />
                 )}
               </View>
             )}
@@ -90,9 +111,9 @@ const BoardArea = ({ board }: BoardAreaProps) => {
       <Pagination.Basic
         progress={progress}
         data={data}
-        dotStyle={{ backgroundColor: '#ffffff5c', borderRadius: 40 }}
+        dotStyle={{ backgroundColor: "#ffffff5c", borderRadius: 40 }}
         size={8}
-        activeDotStyle={{ backgroundColor: '#fff' }}
+        activeDotStyle={{ backgroundColor: "#fff" }}
         containerStyle={{ gap: 10, marginTop: 10 }}
         onPress={onPressPagination}
       />
@@ -102,11 +123,11 @@ const BoardArea = ({ board }: BoardAreaProps) => {
 
 const styles = StyleSheet.create({
   listAddBtn: {
-    backgroundColor: '#00000047',
+    backgroundColor: "#00000047",
     height: 44,
     borderRadius: 6,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
   },
 });
 export default BoardArea;

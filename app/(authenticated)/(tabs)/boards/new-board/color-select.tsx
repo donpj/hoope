@@ -4,15 +4,18 @@ import { useState } from "react";
 import { View, TouchableOpacity } from "react-native";
 
 const COLORS = [
-  "#0079bf",
-  "#d29034",
-  "#519839",
-  "#b04632",
-  "#89609e",
-  "#cd5a91",
-  "#4bbf6b",
-  "#00aecc",
-  "#838c91",
+  "#F8F9FA",
+  "#FFDEAD",
+  "#E6E6FA",
+  "#B0E0E6",
+  "#AFEEEE",
+  "#D8BFD8",
+  "#FFFACD",
+  "#D3FFCE",
+  "#F0E68C",
+  "#FADADD",
+  "#C1E1C1",
+  "#FFCCCB",
 ];
 export const DEFAULT_COLOR = COLORS[0];
 

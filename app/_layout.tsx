@@ -8,6 +8,7 @@ import { useEffect } from "react";
 import { View, ActivityIndicator } from "react-native";
 import { Colors } from "@/constants/Colors";
 import { SupabaseProvider } from "@/context/SupabaseContext";
+import { DefaultTheme } from "@react-navigation/native";
 
 const CLERK_PUBLISHABLE_KEY = process.env
   .EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY as string;
@@ -58,8 +59,44 @@ const InitialLayout = () => {
   return (
     <SupabaseProvider>
       <Stack>
-        <Stack.Screen name="index" options={{ headerShown: false }} />
+        <Stack.Screen
+          name="index"
+          options={{ title: "", headerShown: false }}
+        />
         <Stack.Screen name="(authenticated)" options={{ headerShown: false }} />
+        <Stack.Screen
+          name="authentication/login"
+          options={{
+            //presentation: "Workspaces",
+            title: "Login",
+            headerShadowVisible: false,
+            headerStyle: {
+              backgroundColor: DefaultTheme.colors.background,
+            },
+          }}
+        />
+        <Stack.Screen
+          name="authentication/register"
+          options={{
+            //presentation: "Workspaces",
+            title: "Sign Up",
+            headerShadowVisible: false,
+            headerStyle: {
+              backgroundColor: DefaultTheme.colors.background,
+            },
+          }}
+        />
+        <Stack.Screen
+          name="authentication/reset"
+          options={{
+            //presentation: "Workspaces",
+            title: "Reset Password",
+            headerShadowVisible: false,
+            headerStyle: {
+              backgroundColor: DefaultTheme.colors.background,
+            },
+          }}
+        />
       </Stack>
     </SupabaseProvider>
   );

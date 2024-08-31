@@ -1,6 +1,12 @@
-import { Colors } from '@/constants/Colors';
-import { useState } from 'react';
-import { View, Text, StyleSheet, TextInput, TouchableOpacity } from 'react-native';
+import { Colors } from "@/constants/Colors";
+import { useState } from "react";
+import {
+  View,
+  Text,
+  StyleSheet,
+  TextInput,
+  TouchableOpacity,
+} from "react-native";
 
 export interface ListStartProps {
   onCancel: () => void;
@@ -8,7 +14,7 @@ export interface ListStartProps {
 }
 
 const ListStart = ({ onCancel, onSave }: ListStartProps) => {
-  const [listTitle, setListTitle] = useState('');
+  const [listTitle, setListTitle] = useState("");
 
   return (
     <View style={styles.card}>
@@ -19,7 +25,13 @@ const ListStart = ({ onCancel, onSave }: ListStartProps) => {
         placeholder="List title"
         autoFocus
       />
-      <View style={{ flexDirection: 'row', justifyContent: 'space-between', padding: 8 }}>
+      <View
+        style={{
+          flexDirection: "row",
+          justifyContent: "space-between",
+          padding: 8,
+        }}
+      >
         <TouchableOpacity onPress={onCancel}>
           <Text>Cancel</Text>
         </TouchableOpacity>
@@ -33,11 +45,11 @@ const ListStart = ({ onCancel, onSave }: ListStartProps) => {
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: '#fff',
+    backgroundColor: "#fff",
     borderRadius: 4,
     padding: 6,
     marginBottom: 16,
-    width: '100%',
+    width: "100%",
     height: 90,
   },
   input: {

@@ -195,6 +195,7 @@ export const SupabaseProvider = ({ children }: any) => {
         title: task.title,
         description: task.description,
         done: task.done,
+        position: task.position,
       })
       .match({ id: task.id });
   };
@@ -222,8 +223,12 @@ export const SupabaseProvider = ({ children }: any) => {
   };
 
   const findUsers = async (search: string) => {
+    console.log("Searching for users with email:", search);
     // Use the search_users stored procedure to find users by email
-    const { data } = await client.rpc("search_users", { search: search });
+    const { data, error } = await client.rpc("search_users", {
+      search: search,
+    });
+    console.log("Found errors:", data, error);
     return data;
   };
 

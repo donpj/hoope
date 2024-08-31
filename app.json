@@ -2,7 +2,7 @@
   "expo": {
     "name": "hoopeMvp",
     "slug": "hoopeMvp",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "hoopemvp",
@@ -15,7 +15,8 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.gigipiscitelli.hoopeMvp"
+      "bundleIdentifier": "com.gigipiscitelli.hoopeMvp",
+      "entitlements": { "aps-environment": "development" }
     },
     "android": {
       "adaptiveIcon": {

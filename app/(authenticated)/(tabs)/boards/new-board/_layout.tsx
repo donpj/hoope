@@ -11,7 +11,7 @@ const Layout = () => {
       <Stack.Screen
         name="index"
         options={{
-          title: "Board",
+          title: "Workspace",
           headerShadowVisible: false,
           headerStyle: {
             backgroundColor: DefaultTheme.colors.background,
@@ -26,7 +26,7 @@ const Layout = () => {
       <Stack.Screen
         name="color-select"
         options={{
-          title: "Booard Background",
+          title: "Board Background",
           headerShadowVisible: false,
           headerStyle: {
             backgroundColor: DefaultTheme.colors.background,

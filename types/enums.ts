@@ -5,9 +5,13 @@ export enum ModalType {
 
 export enum AuthStrategy {
   Google = "oauth_google",
-  Microsoft = "oauth_microsoft",
-  Slack = "oauth_slack",
+  Facebook = "oauth_facebook",
+  Metamask = "web3_wallet",
   Apple = "oauth_apple",
+  EmailLink = "email_link", // Added for email link authentication
+  EmailCode = "email_code", // Added for email code verification
+  Passkey = "passkey", // Added for passkey authentication
+  OTP = "otp", // One-time password, e.g., via SMS or email
 }
 
 export interface Board {

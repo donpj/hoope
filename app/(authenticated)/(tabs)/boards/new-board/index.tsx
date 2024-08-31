@@ -60,7 +60,7 @@ const Page = () => {
         style={styles.input}
         value={boardName}
         onChangeText={setBoardName}
-        placeholder="New Board"
+        placeholder="New Workspace"
         autoFocus
       />
 
@@ -82,7 +82,7 @@ const Page = () => {
 
 const styles = StyleSheet.create({
   btnTextDisabled: {
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: "500",
     color: Colors.grey,
   },

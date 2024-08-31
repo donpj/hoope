@@ -1,22 +1,32 @@
-import { Colors } from '@/constants/Colors';
-import { useSupabase } from '@/context/SupabaseContext';
-import { Task, TaskList } from '@/types/enums';
-import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, TextInput, Button, Image } from 'react-native';
-import DraggableFlatList, { DragEndParams } from 'react-native-draggable-flatlist';
-import * as Haptics from 'expo-haptics';
+import { Colors } from "@/constants/Colors";
+import { useSupabase } from "@/context/SupabaseContext";
+import { Task, TaskList } from "@/types/enums";
+import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  TextInput,
+  Button,
+  Image,
+} from "react-native";
+import DraggableFlatList, {
+  DragEndParams,
+} from "react-native-draggable-flatlist";
+import * as Haptics from "expo-haptics";
 import {
   BottomSheetBackdrop,
   BottomSheetModal,
   BottomSheetModalProvider,
-} from '@gorhom/bottom-sheet';
-import { DefaultTheme } from '@react-navigation/native';
-import * as ImagePicker from 'expo-image-picker';
-import * as FileSystem from 'expo-file-system';
-import { useAuth } from '@clerk/clerk-expo';
-import ListItem from '@/components/Board/ListItem';
-import { RealtimePostgresChangesPayload } from '@supabase/supabase-js';
+} from "@gorhom/bottom-sheet";
+import { DefaultTheme } from "@react-navigation/native";
+import * as ImagePicker from "expo-image-picker";
+import * as FileSystem from "expo-file-system";
+import { useAuth } from "@clerk/clerk-expo";
+import ListItem from "@/components/Board/ListItem";
+import { RealtimePostgresChangesPayload } from "@supabase/supabase-js";
 
 export interface ListViewProps {
   taskList: TaskList;
@@ -34,11 +44,11 @@ const ListView = ({ taskList, onDelete }: ListViewProps) => {
     uploadFile,
   } = useSupabase();
   const [isAdding, setIsAdding] = useState(false);
-  const [newTask, setNewTask] = useState('');
+  const [newTask, setNewTask] = useState("");
   const [tasks, setTasks] = useState<any[]>([]);
 
   const bottomSheetModalRef = useRef<BottomSheetModal>(null);
-  const snapPoints = useMemo(() => ['40%'], []);
+  const snapPoints = useMemo(() => ["40%"], []);
 
   const [listName, setListName] = useState(taskList.title);
   const { userId } = useAuth();
@@ -46,25 +56,30 @@ const ListView = ({ taskList, onDelete }: ListViewProps) => {
   useEffect(() => {
     loadListTasks();
 
-    const subscription = getRealtimeCardSubscription!(taskList.id, handleRealtimeChanges);
+    const subscription = getRealtimeCardSubscription!(
+      taskList.id,
+      handleRealtimeChanges
+    );
 
     return () => {
       subscription.unsubscribe();
     };
   }, [taskList.id]);
 
-  const handleRealtimeChanges = (update: RealtimePostgresChangesPayload<any>) => {
-    console.log('REALTIME UPDATE:', update);
+  const handleRealtimeChanges = (
+    update: RealtimePostgresChangesPayload<any>
+  ) => {
+    console.log("REALTIME UPDATE:", update);
     const record = update.new?.id ? update.new : update.old;
     const event = update.eventType;
 
     if (!record) return;
 
-    if (event === 'INSERT') {
+    if (event === "INSERT") {
       setTasks((prev) => {
         return [...prev, record];
       });
-    } else if (event === 'UPDATE') {
+    } else if (event === "UPDATE") {
       setTasks((prev) => {
         return prev
           .map((task) => {
@@ -76,12 +91,12 @@ const ListView = ({ taskList, onDelete }: ListViewProps) => {
           .filter((task) => !task.done)
           .sort((a, b) => a.position - b.position);
       });
-    } else if (event === 'DELETE') {
+    } else if (event === "DELETE") {
       setTasks((prev) => {
         return prev.filter((task) => task.id !== record.id);
       });
     } else {
-      console.log('Unhandled event', event);
+      console.log("Unhandled event", event);
     }
   };
 
@@ -109,7 +124,7 @@ const ListView = ({ taskList, onDelete }: ListViewProps) => {
     );
     if (!error) {
       setIsAdding(false);
-      setNewTask('');
+      setNewTask("");
     }
     // Unnecessary when using realtime updates
     // setTasks([...tasks, data]);
@@ -137,14 +152,24 @@ const ListView = ({ taskList, onDelete }: ListViewProps) => {
 
     if (!result.canceled) {
       const img = result.assets[0];
-      const base64 = await FileSystem.readAsStringAsync(img.uri, { encoding: 'base64' });
-      const fileName = `${new Date().getTime()}-${userId}.${img.type === 'image' ? 'png' : 'mp4'}`;
+      const base64 = await FileSystem.readAsStringAsync(img.uri, {
+        encoding: "base64",
+      });
+      const fileName = `${new Date().getTime()}-${userId}.${
+        img.type === "image" ? "png" : "mp4"
+      }`;
       const filePath = `${taskList.board_id}/${fileName}`;
-      const contentType = img.type === 'image' ? 'image/png' : 'video/mp4';
+      const contentType = img.type === "image" ? "image/png" : "video/mp4";
       const storagePath = await uploadFile!(filePath, base64, contentType);
 
       if (storagePath) {
-        await addListCard!(taskList.id, taskList.board_id, fileName, tasks.length, storagePath);
+        await addListCard!(
+          taskList.id,
+          taskList.board_id,
+          fileName,
+          tasks.length,
+          storagePath
+        );
       }
     }
   };
@@ -167,14 +192,21 @@ const ListView = ({ taskList, onDelete }: ListViewProps) => {
       <View
         style={{
           paddingTop: 20,
-          paddingHorizontal: 30,
-          maxHeight: '88%',
-        }}>
+          paddingHorizontal: 10,
+          maxHeight: "88%",
+        }}
+      >
         <View style={[styles.card]}>
           <View style={styles.header}>
             <Text style={styles.listTitle}>{listName}</Text>
-            <TouchableOpacity onPress={() => bottomSheetModalRef.current?.present()}>
-              <MaterialCommunityIcons name="dots-horizontal" size={22} color={Colors.grey} />
+            <TouchableOpacity
+              onPress={() => bottomSheetModalRef.current?.present()}
+            >
+              <MaterialCommunityIcons
+                name="dots-horizontal"
+                size={22}
+                color={Colors.grey}
+              />
             </TouchableOpacity>
           </View>
 
@@ -183,31 +215,42 @@ const ListView = ({ taskList, onDelete }: ListViewProps) => {
             renderItem={ListItem}
             keyExtractor={(item) => `${item.id}`}
             onDragEnd={onTaskDropped}
-            onDragBegin={() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)}
-            onPlaceholderIndexChange={() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)}
+            onDragBegin={() =>
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
+            }
+            onPlaceholderIndexChange={() =>
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
+            }
             activationDistance={10}
             containerStyle={{
               paddingBottom: 4,
-              maxHeight: '80%',
+              maxHeight: "80%",
             }}
             contentContainerStyle={{ gap: 4 }}
           />
           {isAdding && (
-            <TextInput autoFocus style={styles.input} value={newTask} onChangeText={setNewTask} />
+            <TextInput
+              autoFocus
+              style={styles.input}
+              value={newTask}
+              onChangeText={setNewTask}
+            />
           )}
 
           <View
             style={{
-              flexDirection: 'row',
-              justifyContent: 'space-between',
+              flexDirection: "row",
+              justifyContent: "space-between",
               paddingHorizontal: 8,
               marginVertical: 8,
-            }}>
+            }}
+          >
             {!isAdding && (
               <>
                 <TouchableOpacity
-                  style={{ flexDirection: 'row', alignItems: 'center' }}
-                  onPress={() => setIsAdding(true)}>
+                  style={{ flexDirection: "row", alignItems: "center" }}
+                  onPress={() => setIsAdding(true)}
+                >
                   <Ionicons name="add" size={14} />
                   <Text style={{ fontSize: 12 }}>Add card</Text>
                 </TouchableOpacity>
@@ -219,10 +262,18 @@ const ListView = ({ taskList, onDelete }: ListViewProps) => {
             {isAdding && (
               <>
                 <TouchableOpacity onPress={() => setIsAdding(false)}>
-                  <Text style={{ color: Colors.primary, fontSize: 14 }}>Cancel</Text>
+                  <Text style={{ color: Colors.primary, fontSize: 14 }}>
+                    Cancel
+                  </Text>
                 </TouchableOpacity>
                 <TouchableOpacity onPress={onAddCard}>
-                  <Text style={{ color: Colors.primary, fontSize: 14, fontWeight: 'bold' }}>
+                  <Text
+                    style={{
+                      color: Colors.primary,
+                      fontSize: 14,
+                      fontWeight: "bold",
+                    }}
+                  >
                     Add
                   </Text>
                 </TouchableOpacity>
@@ -235,16 +286,37 @@ const ListView = ({ taskList, onDelete }: ListViewProps) => {
         ref={bottomSheetModalRef}
         index={0}
         snapPoints={snapPoints}
-        handleStyle={{ backgroundColor: DefaultTheme.colors.background, borderRadius: 12 }}
+        handleStyle={{
+          backgroundColor: DefaultTheme.colors.background,
+          borderRadius: 12,
+        }}
         backdropComponent={renderBackdrop}
         enableOverDrag={false}
-        enablePanDownToClose>
+        enablePanDownToClose
+      >
         <View style={styles.container}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 10 }}>
-            <Button title="Cancel" onPress={() => bottomSheetModalRef.current?.close()} />
+          <View
+            style={{
+              flexDirection: "row",
+              alignItems: "center",
+              paddingHorizontal: 10,
+            }}
+          >
+            <Button
+              title="Cancel"
+              onPress={() => bottomSheetModalRef.current?.close()}
+            />
           </View>
-          <View style={{ backgroundColor: '#fff', paddingHorizontal: 16, paddingVertical: 8 }}>
-            <Text style={{ color: Colors.grey, fontSize: 12, marginBottom: 5 }}>List name</Text>
+          <View
+            style={{
+              backgroundColor: "#fff",
+              paddingHorizontal: 16,
+              paddingVertical: 8,
+            }}
+          >
+            <Text style={{ color: Colors.grey, fontSize: 12, marginBottom: 5 }}>
+              List name
+            </Text>
             <TextInput
               style={{ fontSize: 16, color: Colors.fontDark }}
               returnKeyType="done"
@@ -256,7 +328,7 @@ const ListView = ({ taskList, onDelete }: ListViewProps) => {
           </View>
 
           <TouchableOpacity onPress={onDeleteList} style={styles.deleteBtn}>
-            <Text>Close List</Text>
+            <Text>Delete List</Text>
           </TouchableOpacity>
         </View>
       </BottomSheetModal>
@@ -266,23 +338,23 @@ const ListView = ({ taskList, onDelete }: ListViewProps) => {
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: '#F3EFFC',
+    backgroundColor: "#F3EFFC",
     borderRadius: 4,
     padding: 6,
     marginBottom: 16,
   },
   header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    justifyContent: "space-between",
     padding: 8,
-    alignItems: 'center',
+    alignItems: "center",
   },
   input: {
     padding: 8,
     marginBottom: 12,
-    backgroundColor: '#fff',
+    backgroundColor: "#fff",
     elevation: 1,
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.1,
     shadowRadius: 1.2,
@@ -290,14 +362,14 @@ const styles = StyleSheet.create({
   },
   listTitle: {
     paddingVertical: 8,
-    fontWeight: '500',
+    fontWeight: "500",
   },
   deleteBtn: {
-    backgroundColor: '#fff',
+    backgroundColor: "#fff",
     padding: 8,
     marginHorizontal: 16,
     borderRadius: 6,
-    alignItems: 'center',
+    alignItems: "center",
   },
   container: {
     backgroundColor: DefaultTheme.colors.background,

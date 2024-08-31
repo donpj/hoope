@@ -21,7 +21,7 @@ const Layout = () => {
         name="boards"
         options={{
           headerShown: false,
-          title: "Boards",
+          title: "Workspaces",
           tabBarIcon: ({ size, color, focused }) => (
             <Image
               style={{ width: size, height: size }}
@@ -37,7 +37,7 @@ const Layout = () => {
       <Tabs.Screen
         name="my-cards"
         options={{
-          title: "My Cards",
+          title: "My Projects",
           tabBarIcon: ({ size, color }) => (
             <MaterialCommunityIcons
               name="view-dashboard-variant-outline"

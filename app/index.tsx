@@ -22,7 +22,7 @@ export default function Index() {
   const [authType, setAuthType] = useState<ModalType | null>(null);
 
   const openLink = async () => {
-    WebBrowser.openBrowserAsync("https://galaxies.dev");
+    WebBrowser.openBrowserAsync("https://hoope.co");
   };
 
   const openActionSheet = async () => {
@@ -73,7 +73,7 @@ export default function Index() {
           source={require("@/assets/images/login/trello.png")}
           style={styles.image}
         />
-        <Text style={styles.introText}>The Future Of Independent Work</Text>
+        <Text style={styles.introText}>The Future of Independent Work</Text>
         <View style={styles.bottomContainer}>
           <TouchableOpacity
             style={[styles.btn, { backgroundColor: "white" }]}

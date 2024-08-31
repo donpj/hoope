@@ -1,47 +1,4 @@
-import { View, Text } from "react-native";
-import React, { useEffect, useState } from "react";
-import { Stack, useLocalSearchParams } from "expo-router";
-import { useSupabase } from "@/context/SupabaseContext";
-import { BlurView } from "expo-blur";
-
-const Page = () => {
-  const { id, bg } = useLocalSearchParams<{ id: string; bg?: string }>();
-  const [board, setBoard] = useState<Board>(null);
-
-  const { getBoardInfo } = useSupabase();
-
-  useEffect(() => {
-    if (!id) return;
-    loadBoardInfo();
-  }, [id]);
-
-  const loadBoardInfo = async () => {
-    if (!id) return;
-
-    const data = await getBoardInfo!(id);
-    console.log(data);
-    setBoard(data);
-  };
-
-  return (
-    <View
-      style={{
-        backgroundColor: bg,
-        flex: 1,
-      }}
-    >
-      <BlurView intensity={80} tint="dark" style={{ flex: 1 }}>
-        <Text>{board?.title}</Text>
-      </BlurView>
-      <Stack.Screen options={{ title: board?.title }} />
-      <Text>Page</Text>
-    </View>
-  );
-};
-
-export default Page;
-
-/*import { Colors } from "@/constants/Colors";
+import { Colors } from "@/constants/Colors";
 import { useSupabase } from "@/context/SupabaseContext";
 import { Board } from "@/types/enums";
 import { Link, Stack, useLocalSearchParams, useRouter } from "expo-router";
@@ -153,4 +110,3 @@ const styles = StyleSheet.create({
   },
 });
 export default Page;
-*/
