@@ -2,6 +2,7 @@ import { Colors } from "@/constants/Colors";
 import { FontAwesome, Ionicons } from "@expo/vector-icons";
 import { Tabs } from "expo-router";
 import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
+import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { Image } from "react-native";
 
 const Layout = () => {
@@ -35,15 +36,11 @@ const Layout = () => {
         }}
       />
       <Tabs.Screen
-        name="my-cards"
+        name="revolut"
         options={{
-          title: "My Projects",
+          title: "Revolut",
           tabBarIcon: ({ size, color }) => (
-            <MaterialCommunityIcons
-              name="view-dashboard-variant-outline"
-              size={size}
-              color={color}
-            />
+            <MaterialIcons name="payment" size={size} color={color} />
           ),
         }}
       />
