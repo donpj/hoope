@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow-net": [
+      "sandbox-oba-auth.revolut.com",
+      "ewiemrelwtusaygzdcqm.supabase.co"
+    ],
+    "allow-read": ["./"]
+  }
+}

@@ -1,114 +1,95 @@
 import { serve } from "https://deno.land/std@0.171.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@1.30.0";
 
-// Load environment variables
 const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
 const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const revolutClientId = Deno.env.get("REVOLUT_CLIENT_ID")!;
 const supabase = createClient(supabaseUrl, supabaseKey);
 
-console.log("Supabase URL:", supabaseUrl);
-console.log("Revolut Client ID:", revolutClientId);
+console.log("Starting the function...");
+
+async function downloadFile(filename: string): Promise<string> {
+  const { data, error } = await supabase.storage.from("revolut").download(
+    filename,
+  );
+  if (error) {
+    console.error(`Error downloading ${filename}:`, error.message);
+    throw new Error(`File not found in storage: ${filename}`);
+  }
+  return await data.text();
+}
 
 serve(async (req: Request) => {
   try {
     console.log("Request received");
-    const { userId } = await req.json();
-    console.log("User ID:", userId);
 
-    if (!userId) {
-      console.log("Missing userId");
-      return new Response(JSON.stringify({ error: "Missing userId" }), {
-        status: 400,
-      });
+    // Download the required certificates and key from Supabase
+    const transportCert = await downloadFile("transport.pem");
+    const privateKey = await downloadFile("private.key");
+    const caCertRoot = await downloadFile("root.pem");
+    const caCertIssuing = await downloadFile("issuing.pem");
+
+    // Establish a manual TLS connection
+    const tlsConn = await Deno.connectTls({
+      hostname: "sandbox-oba-auth.revolut.com",
+      port: 443,
+      certChain: transportCert,
+      privateKey: privateKey,
+      caCerts: [caCertRoot, caCertIssuing],
+    });
+
+    // Prepare the POST data for OAuth token request
+    const requestBody = new URLSearchParams({
+      grant_type: "client_credentials",
+      scope: "accounts",
+      client_id: revolutClientId,
+    }).toString();
+
+    // Create the HTTP request manually
+    const requestHeaders = `POST /token HTTP/1.1\r\n` +
+      `Host: sandbox-oba-auth.revolut.com\r\n` +
+      `Content-Type: application/x-www-form-urlencoded\r\n` +
+      `Content-Length: ${requestBody.length}\r\n\r\n`;
+
+    const encoder = new TextEncoder();
+    await tlsConn.write(encoder.encode(requestHeaders + requestBody));
+
+    // Read the response
+    const decoder = new TextDecoder();
+    let responseText = "";
+    const buffer = new Uint8Array(1024);
+
+    while (true) {
+      const bytesRead = await tlsConn.read(buffer);
+      if (bytesRead === null) break;
+      responseText += decoder.decode(buffer.subarray(0, bytesRead));
+      if (responseText.includes("\r\n\r\n")) break; // End of headers
     }
 
-    console.log("Fetching client credentials token...");
-    const clientTokenResponse = await fetch(
-      "https://sandbox-oba-auth.revolut.com/token",
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/x-www-form-urlencoded",
-        },
-        body: new URLSearchParams({
-          grant_type: "client_credentials",
-          scope: "accounts",
-          client_id: revolutClientId,
-        }),
-      },
-    );
+    // Parse the response
+    const [headers, body] = responseText.split("\r\n\r\n");
+    const statusLine = headers.split("\r\n")[0];
+    const statusCode = parseInt(statusLine.split(" ")[1]);
 
-    console.log("Response Status: ", clientTokenResponse.status);
-    if (!clientTokenResponse.ok) {
-      console.error("Error fetching token:", clientTokenResponse.statusText);
-      return new Response(
-        JSON.stringify({ error: "Failed to fetch token" }),
-        { status: clientTokenResponse.status },
-      );
-    }
+    console.log("Response status:", statusCode);
+    console.log("Response body:", body);
 
-    const clientTokenData = await clientTokenResponse.json();
-    console.log("Revolut Token Response:", clientTokenData);
-    const accessToken = clientTokenData.access_token;
+    await tlsConn.close();
 
-    if (!accessToken) {
-      console.log("Failed to get client credentials token");
-      return new Response(
-        JSON.stringify({ error: "Failed to get client credentials token" }),
-        { status: 400 },
-      );
-    }
-
-    console.log("Creating account access consent...");
-    const consentResponse = await fetch(
-      "https://sandbox-oba.revolut.com/account-access-consents",
-      {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-          "x-fapi-financial-id": "001580000103UAvAAM",
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          Data: {
-            Permissions: ["ReadAccountsBasic", "ReadAccountsDetail"],
-            ExpirationDateTime: "2024-12-31T00:00:00+00:00",
-            TransactionFromDateTime: "2024-01-01T00:00:00+00:00",
-            TransactionToDateTime: "2024-12-31T00:00:00+00:00",
-          },
-          Risk: {},
-        }),
-      },
-    );
-
-    if (!consentResponse.ok) {
-      console.error("Error creating consent:", consentResponse.statusText);
-      return new Response(
-        JSON.stringify({ error: "Failed to create consent" }),
-        { status: consentResponse.status },
-      );
-    }
-
-    const consentData = await consentResponse.json();
-    console.log("Consent Response Data:", consentData);
-    const consentId = consentData?.Data?.ConsentId;
-
-    if (!consentId) {
-      console.log("Failed to create account access consent");
-      return new Response(
-        JSON.stringify({ error: "Failed to create account access consent" }),
-        { status: 400 },
-      );
-    }
-
-    return new Response(JSON.stringify({ success: true, consentId }), {
+    return new Response(JSON.stringify({ success: true, data: body }), {
       status: 200,
+      headers: { "Content-Type": "application/json" },
     });
   } catch (error) {
-    console.error("Error in Revolut OAuth flow:", error);
-    return new Response(JSON.stringify({ error: "Internal server error" }), {
-      status: 500,
-    });
+    console.error("Error in OAuth flow:", error);
+    return new Response(
+      JSON.stringify({
+        error: "Internal server error",
+        details: error.message,
+      }),
+      {
+        status: 500,
+      },
+    );
   }
 });
