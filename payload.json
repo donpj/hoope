@@ -1,0 +1,6 @@
+{
+  "org_name": "Hoop Hq Ltd",
+  "software_client_name": "hoopeMvp",
+  "org_jwks_endpoint": "https://pastebin.com/raw/EQj3THZe",
+  "software_redirect_uris": ["https://hoopeMvp.com/oauth/callback"]
+}
