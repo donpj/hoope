@@ -189,7 +189,8 @@ function createAuthorizationUrl(jwtUrlParameter: string) {
     const params = new URLSearchParams({
         response_type: "code id_token",
         scope: "accounts",
-        redirect_uri: process.env.REVOLUT_REDIRECT_URI || "",
+        redirect_uri:
+            `https://revolut.com/app/${process.env.REVOLUT_CLIENT_ID}`,
         client_id: process.env.REVOLUT_CLIENT_ID || "",
         request: jwtUrlParameter,
         response_mode: "fragment", // Optional: for more secure parameter passing

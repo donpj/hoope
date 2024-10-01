@@ -5,7 +5,7 @@ import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { ClerkProvider, useAuth } from "@clerk/clerk-expo";
 import * as SecureStore from "expo-secure-store";
 import { useEffect } from "react";
-import { View, ActivityIndicator } from "react-native";
+import { View, ActivityIndicator, Linking } from "react-native";
 import { Colors } from "@/constants/Colors";
 import { SupabaseProvider } from "@/context/SupabaseContext";
 import { DefaultTheme } from "@react-navigation/native";
@@ -47,6 +47,38 @@ const InitialLayout = () => {
       router.replace("/");
     }
   }, [isSignedIn]);
+
+  useEffect(() => {
+    const handleDeepLink = (event: { url: string }) => {
+      const { url } = event;
+      if (url.includes("revolut.com/app/YOUR_CLIENT_ID")) {
+        const code = new URL(url).searchParams.get("code");
+        console.log("Received authorization code:", code);
+        // Handle the authorization code here
+        // For example, you might want to navigate to a specific screen:
+        if (isSignedIn) {
+          router.push({
+            pathname: "/(authenticated)/(tabs)/revolut/callback",
+            params: { code },
+          });
+        }
+      }
+    };
+
+    // Use addListener instead of addEventListener
+    const subscription = Linking.addEventListener("url", handleDeepLink);
+    // Check for initial URL
+    Linking.getInitialURL().then((url) => {
+      if (url) {
+        handleDeepLink({ url });
+      }
+    });
+
+    return () => {
+      // Use remove() method to clean up the listener
+      subscription.remove();
+    };
+  }, [isSignedIn, router]);
 
   if (!isLoaded) {
     return (
@@ -95,6 +127,13 @@ const InitialLayout = () => {
             headerStyle: {
               backgroundColor: DefaultTheme.colors.background,
             },
+          }}
+        />
+        <Stack.Screen
+          name="(authenticated)/(tabs)/revolut/callback"
+          options={{
+            title: "Revolut Callback",
+            headerShown: false,
           }}
         />
       </Stack>

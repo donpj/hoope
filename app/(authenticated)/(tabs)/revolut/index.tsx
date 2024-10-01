@@ -9,7 +9,6 @@ import {
   Linking,
 } from "react-native";
 import { useAuth } from "@clerk/clerk-expo";
-import jwt from "jsonwebtoken";
 
 export default function RevolutConsentScreen() {
   const { getToken } = useAuth();

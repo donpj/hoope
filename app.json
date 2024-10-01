@@ -16,14 +16,30 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.gigipiscitelli.hoopeMvp",
-      "entitlements": { "aps-environment": "development" }
+      "entitlements": {
+        "aps-environment": "development",
+        "com.apple.developer.associated-domains": ["applinks:revolut.com"]
+      }
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
-      "package": "com.gigipiscitelli.hoopeMvp"
+      "package": "com.gigipiscitelli.hoopeMvp",
+      "intentFilters": [
+        {
+          "action": "VIEW",
+          "data": [
+            {
+              "scheme": "https",
+              "host": "revolut.com",
+              "pathPrefix": "/app/edfedc4b-bd94-45a2-a3ce-3992b102c935"
+            }
+          ],
+          "category": ["BROWSABLE", "DEFAULT"]
+        }
+      ]
     },
     "web": {
       "bundler": "metro",
