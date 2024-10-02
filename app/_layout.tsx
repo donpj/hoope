@@ -31,6 +31,20 @@ const tokenCache = {
   },
 };
 
+// Linking configuration for deep linking
+const config = {
+  screens: {
+    Home: "home",
+    Profile: "profile/:id",
+    "(authenticated)/(tabs)/revolut/callback": "redirect",
+  },
+};
+
+const linking = {
+  prefixes: ["hoopemvp://", "https://revolut.com"],
+  config,
+};
+
 const InitialLayout = () => {
   const router = useRouter();
   const { isLoaded, isSignedIn } = useAuth();
@@ -51,7 +65,9 @@ const InitialLayout = () => {
   useEffect(() => {
     const handleDeepLink = (event: { url: string }) => {
       const { url } = event;
-      if (url.includes("revolut.com/app/YOUR_CLIENT_ID")) {
+      if (
+        url.includes("revolut.com/app/edfedc4b-bd94-45a2-a3ce-3992b102c935")
+      ) {
         const code = new URL(url).searchParams.get("code");
         console.log("Received authorization code:", code);
         // Handle the authorization code here
@@ -127,13 +143,6 @@ const InitialLayout = () => {
             headerStyle: {
               backgroundColor: DefaultTheme.colors.background,
             },
-          }}
-        />
-        <Stack.Screen
-          name="(authenticated)/(tabs)/revolut/callback"
-          options={{
-            title: "Revolut Callback",
-            headerShown: false,
           }}
         />
       </Stack>

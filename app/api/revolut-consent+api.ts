@@ -1,9 +1,9 @@
 import https from "https";
-import { NextResponse } from "next/server";
 import axios from "axios";
 import fs from "fs";
 import path from "path";
 import jwt from "jsonwebtoken";
+import crypto from "crypto";
 
 // Next.js API route handler for Revolut consent creation
 export async function POST(request: Request) {
@@ -17,7 +17,7 @@ export async function POST(request: Request) {
         const tokenUrl = "https://sandbox-oba-auth.revolut.com/token";
         const tokenData = new URLSearchParams({
             grant_type: "client_credentials",
-            scope: "accounts",
+            scope: "openid accounts",
             client_id: process.env.REVOLUT_CLIENT_ID || "",
         });
 
@@ -74,8 +74,8 @@ export async function POST(request: Request) {
 
         const consentResponse = await axios.post(consentUrl, consentData, {
             headers: {
-                "Content-Type": "application/json",
                 "Authorization": `Bearer ${access_token}`,
+                "Content-Type": "application/json",
                 "x-fapi-financial-id": "001580000103UAvAAM",
             },
             httpsAgent: new https.Agent({
@@ -156,29 +156,46 @@ function createJwtUrlParameter(consentId: string) {
     const header = {
         alg: "PS256",
         kid: process.env.REVOLUT_KID || "",
+        typ: "JWT",
     };
 
+    const now = Math.floor(Date.now() / 1000);
     const payload = {
+        iss: process.env.REVOLUT_CLIENT_ID,
+        aud: "https://sandbox-oba.revolut.com",
         response_type: "code id_token",
         client_id: process.env.REVOLUT_CLIENT_ID || "",
         redirect_uri: process.env.REVOLUT_REDIRECT_URI || "",
         scope: "accounts",
-        state: "someRandomState", // You might want to generate this dynamically
+        state: crypto.randomBytes(16).toString("hex"),
         claims: {
             id_token: {
+                acr: {
+                    essential: true,
+                    values: ["urn:openbanking:psd2:sca"],
+                },
                 openbanking_intent_id: {
+                    essential: true,
                     value: consentId,
                 },
             },
         },
+        iat: now,
+        exp: now + 300, // Token expires in 5 minutes
     };
 
-    const privateKey = fs.readFileSync(path.resolve("certs/private.key"));
+    console.log("JWT Header:", JSON.stringify(header, null, 2));
+    console.log("JWT Payload:", JSON.stringify(payload, null, 2));
+
+    const privateKeyPath = path.resolve("certs/private.key");
+    const privateKey = fs.readFileSync(privateKeyPath, "utf8");
 
     const token = jwt.sign(payload, privateKey, {
         algorithm: "PS256",
         header: header,
     });
+
+    console.log("Generated JWT:", token);
 
     return token;
 }
@@ -189,11 +206,10 @@ function createAuthorizationUrl(jwtUrlParameter: string) {
     const params = new URLSearchParams({
         response_type: "code id_token",
         scope: "accounts",
-        redirect_uri:
-            `https://revolut.com/app/${process.env.REVOLUT_CLIENT_ID}`,
+        redirect_uri: process.env.REVOLUT_REDIRECT_URI || "",
         client_id: process.env.REVOLUT_CLIENT_ID || "",
         request: jwtUrlParameter,
-        response_mode: "fragment", // Optional: for more secure parameter passing
+        response_mode: "fragment",
     });
 
     return `${baseUrl}?${params.toString()}`;

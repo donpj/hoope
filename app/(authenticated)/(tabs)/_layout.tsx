@@ -39,6 +39,7 @@ const Layout = () => {
         name="revolut"
         options={{
           title: "Revolut",
+
           tabBarIcon: ({ size, color }) => (
             <MaterialIcons name="payment" size={size} color={color} />
           ),

@@ -5,7 +5,7 @@
     "version": "1.0.1",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "hoopemvp",
+    "scheme": "com.gigipiscitelli.hoopemvp",
     "userInterfaceStyle": "automatic",
     "jsEngine": "hermes",
     "splash": {
@@ -16,9 +16,13 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.gigipiscitelli.hoopeMvp",
+      "buildNumber": "3",
       "entitlements": {
         "aps-environment": "development",
-        "com.apple.developer.associated-domains": ["applinks:revolut.com"]
+        "com.apple.developer.associated-domains": [
+          "applinks:revolut.com",
+          "applinks:hoope.co"
+        ]
       }
     },
     "android": {
@@ -27,6 +31,7 @@
         "backgroundColor": "#ffffff"
       },
       "package": "com.gigipiscitelli.hoopeMvp",
+      "versionCode": 2,
       "intentFilters": [
         {
           "action": "VIEW",
@@ -35,6 +40,14 @@
               "scheme": "https",
               "host": "revolut.com",
               "pathPrefix": "/app/edfedc4b-bd94-45a2-a3ce-3992b102c935"
+            },
+            {
+              "scheme": "https",
+              "host": "hoope.co",
+              "pathPrefix": "/revolut-redirect"
+            },
+            {
+              "scheme": "com.gigipiscitelli.hoopemvp"
             }
           ],
           "category": ["BROWSABLE", "DEFAULT"]

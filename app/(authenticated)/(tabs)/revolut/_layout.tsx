@@ -12,10 +12,11 @@ const Layout = () => {
         name="index"
         options={{
           title: "Revolut",
+          headerShown: false,
         }}
       />
       <Stack.Screen
-        name="RevolutAuthenticationScreen"
+        name="payments"
         options={{
           title: "Payments",
           headerShown: false,
@@ -25,3 +26,21 @@ const Layout = () => {
   );
 };
 export default Layout;
+
+/*
+   <Stack.Screen
+        name="(authenticated)/(tabs)/revolut/callback"
+        options={{
+          title: "Payments",
+          headerShown: false,
+        }}
+      />
+      <Stack.Screen
+        name="(authenticated)/(tabs)/revolut/accounts"
+        options={{
+          title: "Payments",
+          headerShown: false,
+        }}
+      />
+
+*/
