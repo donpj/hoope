@@ -40,7 +40,13 @@ async function getAccounts(accessToken: string) {
 
 export async function GET(request: Request) {
     try {
+        console.log("Fetching Revolut access token");
         const accessToken = await getRevolutAccessToken();
+        console.log(
+            "Received access token:",
+            accessToken ? "Token exists" : "No token",
+        );
+
         if (!accessToken) {
             return new Response(
                 JSON.stringify({ error: "No valid access token available" }),
@@ -51,6 +57,7 @@ export async function GET(request: Request) {
             );
         }
 
+        console.log("Fetching accounts with token");
         const accounts = await getAccounts(accessToken);
         return new Response(JSON.stringify(accounts), {
             status: 200,
