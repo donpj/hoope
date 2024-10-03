@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -6,12 +6,33 @@ import {
   Button,
   StyleSheet,
   ActivityIndicator,
+  Linking,
 } from "react-native";
 import { useAuth } from "@clerk/clerk-expo";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { createJws } from "@/utils/jws-helper";
 
 export default function RevolutPaymentScreen() {
+  const [revolutConfig, setRevolutConfig] = useState({
+    REVOLUT_CLIENT_ID: "",
+    REVOLUT_REDIRECT_URI: "",
+  });
+
+  useEffect(() => {
+    const fetchConfig = async () => {
+      try {
+        const response = await fetch("/api/get-revolut-config");
+        const data = await response.json();
+        setRevolutConfig(data);
+        console.log("REVOLUT_CLIENT_ID:", data.REVOLUT_CLIENT_ID);
+        console.log("REVOLUT_REDIRECT_URI:", data.REVOLUT_REDIRECT_URI);
+      } catch (error) {
+        console.error("Failed to fetch Revolut config:", error);
+      }
+    };
+
+    fetchConfig();
+  }, []);
+
   const { getToken } = useAuth();
   const router = useRouter();
   const { accountDetails } = useLocalSearchParams();
@@ -21,6 +42,7 @@ export default function RevolutPaymentScreen() {
   const [error, setError] = useState(null);
   const [consentId, setConsentId] = useState(null);
   const [paymentStatus, setPaymentStatus] = useState(null);
+  const [authorizationUrl, setAuthorizationUrl] = useState(null);
 
   const handleCreateConsent = async () => {
     if (!/^\d+(\.\d{1,2})?$/.test(paymentAmount)) {
@@ -76,20 +98,32 @@ export default function RevolutPaymentScreen() {
         body: JSON.stringify(consentDetails),
       });
 
-      const result = await response.json();
-
       if (!response.ok) {
-        throw new Error(result.error || "Failed to create payment consent");
+        throw new Error(`HTTP error! status: ${response.status}`);
       }
 
-      setConsentId(result.Data.ConsentId);
-      setPaymentStatus("Consent created");
+      const data = await response.json();
+      setConsentId(data.consentData.Data.ConsentId);
+      setPaymentStatus(data.consentData.Data.Status);
+      setAuthorizationUrl(data.authorizationUrl);
     } catch (err) {
       setError(err.message);
+      console.error("Error creating consent:", err);
     } finally {
       setLoading(false);
     }
   };
+
+  const handleAuthorize = async () => {
+    if (authorizationUrl) {
+      await Linking.openURL(authorizationUrl);
+    }
+  };
+
+  console.log("Direct env access:", {
+    REVOLUT_CLIENT_ID: revolutConfig.REVOLUT_CLIENT_ID,
+    REVOLUT_REDIRECT_URI: revolutConfig.REVOLUT_REDIRECT_URI,
+  });
 
   return (
     <View style={styles.container}>
@@ -131,6 +165,13 @@ export default function RevolutPaymentScreen() {
         <Text style={styles.paymentStatus}>
           Consent Status: {paymentStatus}
         </Text>
+      )}
+      {authorizationUrl && (
+        <Button
+          title="Authorize Payment"
+          onPress={handleAuthorize}
+          disabled={loading}
+        />
       )}
       <Button title="Back to Accounts" onPress={() => router.back()} />
     </View>
