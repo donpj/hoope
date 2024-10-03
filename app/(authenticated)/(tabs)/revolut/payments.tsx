@@ -9,39 +9,38 @@ import {
 } from "react-native";
 import { useAuth } from "@clerk/clerk-expo";
 import { useLocalSearchParams, useRouter } from "expo-router";
+import { createJws } from "@/utils/jws-helper";
 
 export default function RevolutPaymentScreen() {
   const { getToken } = useAuth();
   const router = useRouter();
-  const { consentId, accountDetails } = useLocalSearchParams();
+  const { accountDetails } = useLocalSearchParams();
   const [paymentAmount, setPaymentAmount] = useState("");
   const [paymentReference, setPaymentReference] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [consentId, setConsentId] = useState(null);
   const [paymentStatus, setPaymentStatus] = useState(null);
 
-  const handlePayment = async () => {
+  const handleCreateConsent = async () => {
+    if (!/^\d+(\.\d{1,2})?$/.test(paymentAmount)) {
+      setError("Please enter a valid amount (e.g., 500.00)");
+      return;
+    }
+
     try {
       setLoading(true);
       setError(null);
       const token = await getToken({ template: "supabase" });
 
-      // Create the paymentDetails object
-      const paymentDetails = {
+      const consentDetails = {
         Data: {
-          ConsentId: consentId,
           Initiation: {
             InstructionIdentification: "ACME412",
             EndToEndIdentification: "FRESCO.21302.GFX.20",
             InstructedAmount: {
-              Amount: paymentAmount,
+              Amount: Number(paymentAmount).toFixed(2),
               Currency: JSON.parse(accountDetails).Currency,
-            },
-            DebtorAccount: {
-              SchemeName: JSON.parse(accountDetails).Account[0].SchemeName,
-              Identification:
-                JSON.parse(accountDetails).Account[0].Identification,
-              Name: JSON.parse(accountDetails).Account[0].Name,
             },
             CreditorAccount: {
               SchemeName: "UK.OBIE.SortCodeAccountNumber",
@@ -49,42 +48,44 @@ export default function RevolutPaymentScreen() {
               Name: "ACME Inc",
             },
             RemittanceInformation: {
-              Reference: paymentReference,
+              Unstructured: paymentReference,
             },
           },
         },
-        Risk: {},
+        Risk: {
+          PaymentContextCode: "EcommerceGoods",
+          MerchantCategoryCode: "5967",
+          MerchantCustomerIdentification: "123456",
+          DeliveryAddress: {
+            AddressLine: ["Flat 7", "Acacia Lodge"],
+            StreetName: "Acacia Avenue",
+            BuildingNumber: "27",
+            PostCode: "GU31 2ZZ",
+            TownName: "Sparsholt",
+            Country: "UK",
+          },
+        },
       };
 
-      console.log("Payment Details:", JSON.stringify(paymentDetails, null, 2));
-
-      const paymentResponse = await fetch("/api/revolut-payments", {
+      const response = await fetch("/api/revolut-payments-consent", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify(paymentDetails),
+        body: JSON.stringify(consentDetails),
       });
 
-      const responseText = await paymentResponse.text();
-      console.log("Raw API Response:", responseText);
+      const result = await response.json();
 
-      if (!paymentResponse.ok) {
-        const errorData = JSON.parse(responseText);
-        throw new Error(
-          `Failed to initiate payment: ${paymentResponse.status}. ${
-            errorData.details || errorData.error
-          }`
-        );
+      if (!response.ok) {
+        throw new Error(result.error || "Failed to create payment consent");
       }
 
-      const paymentResult = JSON.parse(responseText);
-      console.log("Payment Result:", JSON.stringify(paymentResult, null, 2));
-      setPaymentStatus(paymentResult.Data.Status);
+      setConsentId(result.Data.ConsentId);
+      setPaymentStatus("Consent created");
     } catch (err) {
       setError(err.message);
-      console.error("Error initiating payment:", err);
     } finally {
       setLoading(false);
     }
@@ -92,12 +93,22 @@ export default function RevolutPaymentScreen() {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Make a Payment</Text>
+      <Text style={styles.title}>Create Payment Consent</Text>
       <TextInput
         style={styles.input}
-        placeholder="Amount"
+        placeholder="Amount (e.g., 500.00)"
         value={paymentAmount}
-        onChangeText={setPaymentAmount}
+        onChangeText={(text) => {
+          const newText = text.replace(/[^0-9.]/g, "");
+          const parts = newText.split(".");
+          if (parts.length > 2) {
+            return;
+          }
+          if (parts[1] && parts[1].length > 2) {
+            return;
+          }
+          setPaymentAmount(newText);
+        }}
         keyboardType="numeric"
       />
       <TextInput
@@ -107,15 +118,18 @@ export default function RevolutPaymentScreen() {
         onChangeText={setPaymentReference}
       />
       <Button
-        title="Initiate Payment"
-        onPress={handlePayment}
+        title="Create Payment Consent"
+        onPress={handleCreateConsent}
         disabled={loading}
       />
       {loading && <ActivityIndicator size="large" />}
       {error && <Text style={styles.error}>Error: {error}</Text>}
+      {consentId && (
+        <Text style={styles.consentId}>Consent ID: {consentId}</Text>
+      )}
       {paymentStatus && (
         <Text style={styles.paymentStatus}>
-          Payment Status: {paymentStatus}
+          Consent Status: {paymentStatus}
         </Text>
       )}
       <Button title="Back to Accounts" onPress={() => router.back()} />
@@ -145,6 +159,10 @@ const styles = StyleSheet.create({
     marginTop: 10,
   },
   paymentStatus: {
+    marginTop: 10,
+    fontWeight: "bold",
+  },
+  consentId: {
     marginTop: 10,
     fontWeight: "bold",
   },

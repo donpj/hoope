@@ -184,7 +184,7 @@ export default function RevolutConsentScreen() {
   const handleNavigateToPayments = () => {
     if (consentData && consentData.Data && consentData.Data.ConsentId) {
       router.push({
-        pathname: "/revolut/payments",
+        pathname: "/(authenticated)/(tabs)/revolut/payments",
         params: {
           consentId: consentData.Data.ConsentId,
           accountDetails: JSON.stringify(accounts.Data.Account[0]), // Passing the first account for simplicity
