@@ -184,13 +184,60 @@ export default function RevolutPaymentScreen() {
   const initiatePayment = async () => {
     try {
       setLoading(true);
+      setError(null);
       const token = await getToken({ template: "supabase" });
 
-      if (!paymentAmount || !consentId || !accessToken) {
-        throw new Error(
-          "Payment amount, consent ID, and access token are required"
-        );
+      if (!consentId) {
+        setError("Consent ID is missing. Please create a consent first.");
+        return;
       }
+
+      if (!accessToken) {
+        setError(
+          "Access token is missing. Please authorize the payment first."
+        );
+        return;
+      }
+
+      const paymentDetails = {
+        Data: {
+          ConsentId: consentId,
+          Initiation: {
+            InstructionIdentification: "ACME412",
+            EndToEndIdentification: "FRESCO.21302.GFX.20",
+            InstructedAmount: {
+              Amount: Number(paymentAmount).toFixed(2),
+              Currency: JSON.parse(accountDetails).Currency,
+            },
+            CreditorAccount: {
+              SchemeName: "UK.OBIE.SortCodeAccountNumber",
+              Identification: "08080021325698",
+              Name: "ACME Inc",
+            },
+            RemittanceInformation: {
+              Unstructured: paymentReference,
+            },
+          },
+        },
+        Risk: {
+          PaymentContextCode: "EcommerceGoods",
+          MerchantCategoryCode: "5967",
+          MerchantCustomerIdentification: "123456",
+          DeliveryAddress: {
+            AddressLine: ["Flat 7", "Acacia Lodge"],
+            StreetName: "Acacia Avenue",
+            BuildingNumber: "27",
+            PostCode: "GU31 2ZZ",
+            TownName: "Sparsholt",
+            Country: "UK",
+          },
+        },
+      };
+
+      console.log(
+        "Sending payment details:",
+        JSON.stringify(paymentDetails, null, 2)
+      );
 
       const response = await fetch("/api/revolut-payments", {
         method: "POST",
@@ -200,13 +247,9 @@ export default function RevolutPaymentScreen() {
         },
         body: JSON.stringify({
           action: "initiatePayment",
-          accessToken,
+          paymentDetails,
           consentId,
-          paymentDetails: {
-            Amount: paymentAmount,
-            Currency: JSON.parse(accountDetails).Currency,
-            Reference: paymentReference,
-          },
+          accessToken, // Make sure this is included
         }),
       });
 
