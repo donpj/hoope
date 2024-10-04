@@ -10,6 +10,7 @@ import {
 } from "react-native";
 import { useAuth } from "@clerk/clerk-expo";
 import { useLocalSearchParams, useRouter } from "expo-router";
+import * as WebBrowser from "expo-web-browser";
 
 export default function RevolutPaymentScreen() {
   const [revolutConfig, setRevolutConfig] = useState({
@@ -116,7 +117,10 @@ export default function RevolutPaymentScreen() {
 
   const handleAuthorize = async () => {
     if (authorizationUrl) {
-      await Linking.openURL(authorizationUrl);
+      await WebBrowser.openAuthSessionAsync(
+        authorizationUrl,
+        "yourapp://callback"
+      );
     }
   };
 

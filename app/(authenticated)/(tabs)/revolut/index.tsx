@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import {
   View,
   Button,
@@ -12,7 +12,7 @@ import {
   SafeAreaView,
 } from "react-native";
 import { useAuth } from "@clerk/clerk-expo";
-import * as Linking from "expo-linking";
+import * as WebBrowser from "expo-web-browser";
 import { useRouter } from "expo-router";
 
 export default function RevolutConsentScreen() {
@@ -24,52 +24,48 @@ export default function RevolutConsentScreen() {
   const [authorizationUrl, setAuthorizationUrl] = useState(null);
   const [accounts, setAccounts] = useState(null);
 
+  const handleDeepLink = useCallback((event) => {
+    console.log("Full received URL:", event.url);
+    let url = event.url;
+
+    // Check if the URL contains a '#' and replace it with '?'
+    if (url.includes("#")) {
+      url = url.replace("#", "?");
+    }
+
+    const parsedUrl = new URL(url);
+    const code = parsedUrl.searchParams.get("code");
+    const state = parsedUrl.searchParams.get("state");
+    const idToken = parsedUrl.searchParams.get("id_token");
+
+    console.log(
+      "Extracted - code:",
+      code,
+      "state:",
+      state,
+      "id_token:",
+      idToken
+    );
+
+    if (code) {
+      fetchAccounts(code);
+    } else {
+      console.error("Authorization code is missing in the URL");
+      setError("Authorization code is missing. Please try again.");
+    }
+  }, []);
+
   useEffect(() => {
     if (authorizationUrl) {
-      Linking.openURL(authorizationUrl).catch((err) =>
-        console.error("An error occurred", err)
-      );
+      WebBrowser.openAuthSessionAsync(authorizationUrl, "yourapp://callback")
+        .then((result) => {
+          if (result.type === "success" && result.url) {
+            handleDeepLink({ url: result.url });
+          }
+        })
+        .catch((err) => console.error("An error occurred", err));
     }
   }, [authorizationUrl]);
-
-  useEffect(() => {
-    const handleDeepLink = (event) => {
-      console.log("Full received URL:", event.url);
-      let url = event.url;
-
-      // Check if the URL contains a '#' and replace it with '?'
-      if (url.includes("#")) {
-        url = url.replace("#", "?");
-      }
-
-      const parsedUrl = new URL(url);
-      const code = parsedUrl.searchParams.get("code");
-      const state = parsedUrl.searchParams.get("state");
-      const idToken = parsedUrl.searchParams.get("id_token");
-
-      console.log(
-        "Extracted - code:",
-        code,
-        "state:",
-        state,
-        "id_token:",
-        idToken
-      );
-
-      if (code) {
-        fetchAccounts(code);
-      } else {
-        console.error("Authorization code is missing in the URL");
-        setError("Authorization code is missing. Please try again.");
-      }
-    };
-
-    const subscription = Linking.addEventListener("url", handleDeepLink);
-
-    return () => {
-      subscription.remove();
-    };
-  }, []);
 
   const handleCreateConsent = async () => {
     setLoading(true);
