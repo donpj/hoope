@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import {
   View,
   Text,
@@ -6,37 +6,13 @@ import {
   Button,
   StyleSheet,
   ActivityIndicator,
-  Linking,
 } from "react-native";
 import { useAuth } from "@clerk/clerk-expo";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import * as WebBrowser from "expo-web-browser";
+import axios from "axios";
 
 export default function RevolutPaymentScreen() {
-  const [revolutConfig, setRevolutConfig] = useState({
-    REVOLUT_CLIENT_ID: "",
-    REVOLUT_REDIRECT_URI: "",
-  });
-
-  useEffect(() => {
-    const fetchConfig = async () => {
-      try {
-        const response = await fetch("/api/get-revolut-config");
-        const data = await response.json();
-        setRevolutConfig(data);
-        console.log("REVOLUT_CLIENT_ID:", data.REVOLUT_CLIENT_ID);
-        console.log("REVOLUT_REDIRECT_URI:", data.REVOLUT_REDIRECT_URI);
-      } catch (error) {
-        console.error("Failed to fetch Revolut config:", error);
-      }
-    };
-
-    fetchConfig();
-  }, []);
-
-  const { getToken } = useAuth();
-  const router = useRouter();
-  const { accountDetails } = useLocalSearchParams();
   const [paymentAmount, setPaymentAmount] = useState("");
   const [paymentReference, setPaymentReference] = useState("");
   const [loading, setLoading] = useState(false);
@@ -44,6 +20,57 @@ export default function RevolutPaymentScreen() {
   const [consentId, setConsentId] = useState(null);
   const [paymentStatus, setPaymentStatus] = useState(null);
   const [authorizationUrl, setAuthorizationUrl] = useState(null);
+  const [domesticPaymentId, setDomesticPaymentId] = useState(null);
+  const [accessToken, setAccessToken] = useState(null);
+  const [refreshToken, setRefreshToken] = useState(null);
+
+  const { getToken } = useAuth();
+  const router = useRouter();
+  const { accountDetails } = useLocalSearchParams();
+
+  const handleDeepLink = useCallback((event) => {
+    console.log("Full received URL (Payment):", event.url);
+    let url = event.url;
+
+    if (url.includes("#")) {
+      url = url.replace("#", "?");
+    }
+
+    const parsedUrl = new URL(url);
+    const code = parsedUrl.searchParams.get("code");
+    const state = parsedUrl.searchParams.get("state");
+    const idToken = parsedUrl.searchParams.get("id_token");
+
+    console.log(
+      "Extracted (Payment) - code:",
+      code,
+      "state:",
+      state,
+      "id_token:",
+      idToken
+    );
+
+    if (code) {
+      exchangeCodeForToken(code);
+    } else {
+      console.error("No code found in the URL");
+    }
+  }, []);
+
+  useEffect(() => {
+    if (authorizationUrl) {
+      WebBrowser.openAuthSessionAsync(
+        authorizationUrl,
+        "com.gigipiscitelli.hoopemvp://(authenticated)/(tabs)/revolut/payments"
+      )
+        .then((result) => {
+          if (result.type === "success" && result.url) {
+            handleDeepLink({ url: result.url });
+          }
+        })
+        .catch((err) => console.error("An error occurred (Payment)", err));
+    }
+  }, [authorizationUrl, handleDeepLink]);
 
   const handleCreateConsent = async () => {
     if (!/^\d+(\.\d{1,2})?$/.test(paymentAmount)) {
@@ -115,19 +142,133 @@ export default function RevolutPaymentScreen() {
     }
   };
 
-  const handleAuthorize = async () => {
-    if (authorizationUrl) {
-      await WebBrowser.openAuthSessionAsync(
-        authorizationUrl,
-        "yourapp://callback"
-      );
+  const exchangeCodeForToken = async (code: string) => {
+    try {
+      const token = await getToken({ template: "supabase" });
+      const response = await fetch("/api/revolut-payments", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ action: "exchangeToken", code }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(
+          `HTTP error! status: ${response.status}, message: ${
+            errorData.error || "Unknown error"
+          }`
+        );
+      }
+
+      const data = await response.json();
+      console.log("Token exchange response:", data);
+
+      // Store the access token
+      setAccessToken(data.access_token);
+      // Also store the refresh token if provided
+      if (data.refresh_token) {
+        setRefreshToken(data.refresh_token);
+      }
+
+      return data;
+    } catch (error) {
+      console.error("Error exchanging code for token:", error);
+      setError(error.message);
+      throw error;
     }
   };
 
-  console.log("Direct env access:", {
-    REVOLUT_CLIENT_ID: revolutConfig.REVOLUT_CLIENT_ID,
-    REVOLUT_REDIRECT_URI: revolutConfig.REVOLUT_REDIRECT_URI,
-  });
+  const initiatePayment = async () => {
+    try {
+      setLoading(true);
+      const token = await getToken({ template: "supabase" });
+
+      if (!paymentAmount || !consentId || !accessToken) {
+        throw new Error(
+          "Payment amount, consent ID, and access token are required"
+        );
+      }
+
+      const response = await fetch("/api/revolut-payments", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          action: "initiatePayment",
+          accessToken,
+          consentId,
+          paymentDetails: {
+            Amount: paymentAmount,
+            Currency: JSON.parse(accountDetails).Currency,
+            Reference: paymentReference,
+          },
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(
+          `HTTP error! status: ${response.status}, message: ${
+            errorData.error || "Unknown error"
+          }`
+        );
+      }
+
+      const data = await response.json();
+      setPaymentStatus(data.Data.Status);
+      setDomesticPaymentId(data.Data.DomesticPaymentId);
+    } catch (err) {
+      setError(err.message);
+      console.error("Error initiating payment:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const checkPaymentStatus = async () => {
+    try {
+      setLoading(true);
+      const token = await getToken({ template: "supabase" });
+
+      if (!domesticPaymentId) {
+        throw new Error("Domestic Payment ID is required");
+      }
+
+      const response = await fetch("/api/revolut-payments", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          action: "checkStatus",
+          domesticPaymentId,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(
+          `HTTP error! status: ${response.status}, message: ${
+            errorData.error || "Unknown error"
+          }`
+        );
+      }
+
+      const data = await response.json();
+      setPaymentStatus(data.Data.Status);
+    } catch (err) {
+      setError(err.message);
+      console.error("Error checking payment status:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <View style={styles.container}>
@@ -165,17 +306,24 @@ export default function RevolutPaymentScreen() {
       {consentId && (
         <Text style={styles.consentId}>Consent ID: {consentId}</Text>
       )}
-      {paymentStatus && (
-        <Text style={styles.paymentStatus}>
-          Consent Status: {paymentStatus}
-        </Text>
-      )}
-      {authorizationUrl && (
+      {consentId && accessToken && (
         <Button
-          title="Authorize Payment"
-          onPress={handleAuthorize}
+          title="Initiate Payment"
+          onPress={initiatePayment}
           disabled={loading}
         />
+      )}
+      {domesticPaymentId && (
+        <Button
+          title="Check Payment Status"
+          onPress={checkPaymentStatus}
+          disabled={loading}
+        />
+      )}
+      {paymentStatus && (
+        <Text style={styles.paymentStatus}>
+          Payment Status: {paymentStatus}
+        </Text>
       )}
       <Button title="Back to Accounts" onPress={() => router.back()} />
     </View>

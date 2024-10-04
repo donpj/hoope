@@ -31,9 +31,18 @@ export async function POST(request: Request) {
         console.log("REVOLUT_CLIENT_ID:", process.env.REVOLUT_CLIENT_ID);
 
         const tokenResponse = await axios.post(tokenUrl, tokenData, {
-            headers: { "Content-Type": "application/x-www-form-urlencoded" },
+            headers: {
+                "Content-Type": "application/x-www-form-urlencoded",
+                "Authorization": `Basic ${
+                    Buffer.from(
+                        `${process.env.REVOLUT_CLIENT_ID}:${process.env.REVOLUT_CLIENT_SECRET}`,
+                    ).toString("base64")
+                }`,
+            },
             httpsAgent: agent,
         });
+
+        console.log("Token response:", tokenResponse.data);
 
         const { access_token } = tokenResponse.data;
         if (!access_token) {

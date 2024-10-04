@@ -37,37 +37,40 @@ async function initiatePayment(accessToken: string, paymentDetails: any) {
 
 export async function POST(req: Request) {
     try {
-        const paymentDetails = await req.json();
-        console.log(
-            "Received payment details:",
-            JSON.stringify(paymentDetails, null, 2),
-        );
+        const { action, code, paymentDetails } = await req.json();
 
-        const accessToken = await getRevolutAccessToken();
-        if (!accessToken) {
-            return new Response(
-                JSON.stringify({
-                    error: "No valid Revolut access token found",
-                }),
-                {
-                    status: 401,
+        switch (action) {
+            case "exchangeToken":
+                const tokenResponse = await exchangeCodeForToken(code);
+                return new Response(JSON.stringify(tokenResponse), {
+                    status: 200,
                     headers: { "Content-Type": "application/json" },
-                },
-            );
+                });
+
+            case "initiatePayment":
+                const payment = await initiatePayment(
+                    accessToken,
+                    paymentDetails,
+                );
+                console.log(
+                    "Payment initiated successfully:",
+                    JSON.stringify(payment, null, 2),
+                );
+
+                return new Response(JSON.stringify(payment), {
+                    status: 200,
+                    headers: { "Content-Type": "application/json" },
+                });
+
+            default:
+                return new Response(
+                    JSON.stringify({ error: "Invalid action" }),
+                    {
+                        status: 400,
+                        headers: { "Content-Type": "application/json" },
+                    },
+                );
         }
-
-        console.log("Using Revolut access token:", accessToken);
-
-        const payment = await initiatePayment(accessToken, paymentDetails);
-        console.log(
-            "Payment initiated successfully:",
-            JSON.stringify(payment, null, 2),
-        );
-
-        return new Response(JSON.stringify(payment), {
-            status: 200,
-            headers: { "Content-Type": "application/json" },
-        });
     } catch (error) {
         console.error("Server-side error:", error);
         const statusCode = error.response ? error.response.status : 500;
@@ -84,6 +87,40 @@ export async function POST(req: Request) {
                 headers: { "Content-Type": "application/json" },
             },
         );
+    }
+}
+
+async function exchangeCodeForToken(code: string) {
+    const tokenUrl = "https://sandbox-oba-auth.revolut.com/token";
+    const cert = fs.readFileSync(path.resolve("certs/transport.pem"));
+    const key = fs.readFileSync(path.resolve("certs/private.key"));
+
+    try {
+        const response = await axios.post(
+            tokenUrl,
+            new URLSearchParams({
+                grant_type: "authorization_code",
+                code: code,
+            }),
+            {
+                headers: {
+                    "Content-Type": "application/x-www-form-urlencoded",
+                },
+                httpsAgent: new https.Agent({
+                    cert: cert,
+                    key: key,
+                    rejectUnauthorized: false,
+                }),
+            },
+        );
+        console.log("Token exchange response:", response.data);
+        return response.data;
+    } catch (error) {
+        console.error(
+            "Error exchanging code for token:",
+            error.response ? error.response.data : error.message,
+        );
+        throw error;
     }
 }
 
