@@ -10,7 +10,8 @@ npm-debug.*
 *.orig.*
 web-build/
 certs/
-
+ios/
+android/
 # macOS
 .DS_Store
 

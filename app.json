@@ -5,7 +5,7 @@
     "version": "1.0.1",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "com.gigipiscitelli.hoopemvp",
+    "scheme": "com.gigipiscitelli.hoopeMvp",
     "userInterfaceStyle": "automatic",
     "jsEngine": "hermes",
     "splash": {
@@ -16,7 +16,7 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.gigipiscitelli.hoopeMvp",
-      "buildNumber": "3",
+      "buildNumber": "6",
       "entitlements": {
         "aps-environment": "development",
         "com.apple.developer.associated-domains": [
@@ -47,7 +47,7 @@
               "pathPrefix": "/revolut-redirect"
             },
             {
-              "scheme": "com.gigipiscitelli.hoopemvp"
+              "scheme": "com.gigipiscitelli.hoopeMvp"
             }
           ],
           "category": ["BROWSABLE", "DEFAULT"]
@@ -60,13 +60,14 @@
       "favicon": "./assets/images/favicon.png"
     },
     "plugins": [
-      ["expo-router", { "origin": "https://evanbacon.dev/" }],
+      ["expo-router", { "origin": "https://hoope.co" }],
       "expo-secure-store"
     ],
     "experiments": {
       "typedRoutes": true
     },
     "extra": {
+      "apiUrl": "http://localhost:8081",
       "router": {
         "origin": false
       },

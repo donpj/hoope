@@ -6,6 +6,7 @@ import {
   Button,
   StyleSheet,
   ActivityIndicator,
+  Alert, // Add this import at the top of the file
 } from "react-native";
 import { useAuth } from "@clerk/clerk-expo";
 import { useLocalSearchParams, useRouter } from "expo-router";
@@ -249,20 +250,24 @@ export default function RevolutPaymentScreen() {
           action: "initiatePayment",
           paymentDetails,
           consentId,
-          accessToken, // Make sure this is included
+          accessToken,
         }),
       });
 
+      const data = await response.json();
+
       if (!response.ok) {
-        const errorData = await response.json();
+        if (data.error && data.error.includes("Insufficient funds")) {
+          Alert.alert("Insufficient funds");
+          return;
+        }
         throw new Error(
           `HTTP error! status: ${response.status}, message: ${
-            errorData.error || "Unknown error"
+            data.error || "Unknown error"
           }`
         );
       }
 
-      const data = await response.json();
       setPaymentStatus(data.Data.Status);
       setDomesticPaymentId(data.Data.DomesticPaymentId);
     } catch (err) {
