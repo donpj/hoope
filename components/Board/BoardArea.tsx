@@ -13,7 +13,7 @@ import {
 } from "react-native";
 import { useSharedValue } from "react-native-reanimated";
 import Carousel, { ICarouselInstance } from "react-native-reanimated-carousel";
-import { Pagination } from "@/components/DynamicCarousel";
+import { Pagination } from "react-native-reanimated-carousel";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 export interface BoardAreaProps {
