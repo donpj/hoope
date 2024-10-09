@@ -1,55 +1,58 @@
 import https from "https";
 import axios from "axios";
-import fs from "fs";
-import path from "path";
 import jwt from "jsonwebtoken";
 import crypto from "crypto";
 
 // Next.js API route handler for Revolut consent creation
 export async function POST(request: Request) {
-    console.log("POST function called");
-
     try {
-        console.log("Starting consent creation process");
+        const body = await request.text();
+        validateUrls();
+    } catch (error) {
+        return new Response(
+            JSON.stringify({ error: error.message, stack: error.stack }),
+            {
+                status: 500,
+                headers: { "Content-Type": "application/json" },
+            },
+        );
+    }
+    try {
+        const cert = process.env.REVOLUT_CERT;
+        const key = process.env.REVOLUT_PRIVATE_KEY;
 
-        // Read certificates from files
-        const certPath = path.join(process.cwd(), "certs", "transport.pem");
-        const keyPath = path.join(process.cwd(), "certs", "private.key");
-        let cert: string, key: string;
-
-        try {
-            cert = fs.readFileSync(certPath, "utf8");
-            key = fs.readFileSync(keyPath, "utf8");
-            console.log("Certificates loaded from files");
-        } catch (err) {
-            console.error("Error reading certificate files:", err);
+        if (!cert || !key) {
             throw new Error(
-                "Failed to read SSL certificate or private key files",
+                "SSL certificate or private key not found in environment variables",
             );
         }
 
-        if (!cert || !key) {
-            throw new Error("SSL certificate or private key not found");
+        if (
+            !cert.includes("-----BEGIN CERTIFICATE-----") ||
+            !key.includes("-----BEGIN PRIVATE KEY-----")
+        ) {
+            console.error(
+                "Certificate or key does not have the expected PEM format",
+            );
+            console.log(
+                "REVOLUT_CERT (first 50 chars):",
+                cert?.substring(0, 50),
+            );
+            console.log(
+                "REVOLUT_PRIVATE_KEY (first 50 chars):",
+                key?.substring(0, 50),
+            );
+            throw new Error("Invalid certificate or key format");
         }
-
-        console.log("Certificate loaded, length:", cert.length);
-        console.log("Key loaded, length:", key.length);
 
         // Step 1: Generate client credentials token
         console.log("Generating client credentials token...");
-        const tokenUrl = `${process.env.REVOLUT_HOST}/token}`;
+        const tokenUrl = `${process.env.REVOLUT_HOST}/token`;
         const tokenData = new URLSearchParams({
             grant_type: "client_credentials",
             scope: "openid accounts",
             client_id: process.env.REVOLUT_CLIENT_ID || "",
         });
-
-        console.log("Token request URL:", tokenUrl);
-        console.log("Token request data:", tokenData.toString());
-        console.log("REVOLUT_CLIENT_ID:", process.env.REVOLUT_CLIENT_ID);
-
-        console.log("Certificate loaded, length:", cert.length);
-        console.log("Key loaded, length:", key.length);
 
         const tokenResponse = await axios.post(tokenUrl, tokenData, {
             headers: {
@@ -75,8 +78,7 @@ export async function POST(request: Request) {
 
         // Step 2: Create account access consent
         console.log("Creating account access consent...");
-        const consentUrl =
-            "https://sandbox-oba.revolut.com/account-access-consents";
+        const consentUrl = `${process.env.REVOLUT_URL}/account-access-consents`;
 
         const consentData = {
             Data: {
@@ -123,12 +125,8 @@ export async function POST(request: Request) {
         const consentId = consentResponse.data.Data.ConsentId;
         const jwtUrlParameter = createJwtUrlParameter(consentId);
 
-        console.log("JWT URL Parameter:", jwtUrlParameter);
-
         // Step 4: Create authorization URL
         const authorizationUrl = createAuthorizationUrl(jwtUrlParameter);
-
-        console.log("Authorization URL:", authorizationUrl);
 
         return new Response(
             JSON.stringify({
@@ -141,43 +139,14 @@ export async function POST(request: Request) {
             },
         );
     } catch (error) {
-        console.error("Detailed error:", error);
-        if (error.response) {
-            console.error("Response data:", error.response.data);
-            console.error("Response status:", error.response.status);
-            console.error("Response headers:", error.response.headers);
-        } else if (error.request) {
-            console.error("No response received:", error.request);
-        } else {
-            console.error("Error setting up request:", error.message);
-        }
-        let errorMessage = "An unexpected error occurred";
-        let statusCode = 500;
-
-        if (axios.isAxiosError(error)) {
-            console.error("Axios error details:", {
-                response: error.response?.data,
-                status: error.response?.status,
-                headers: error.response?.headers,
-            });
-            errorMessage = error.message;
-            statusCode = error.response?.status || 500;
-        } else if (error instanceof Error) {
-            errorMessage = error.message;
-        }
-
-        console.error(
-            "Detailed error:",
-            JSON.stringify(error, Object.getOwnPropertyNames(error)),
+        console.error("Detailed error in POST function:", error);
+        return new Response(
+            JSON.stringify({ error: error.message, stack: error.stack }),
+            {
+                status: 500,
+                headers: { "Content-Type": "application/json" },
+            },
         );
-        console.error("Stack trace:", error.stack);
-
-        return new Response(JSON.stringify({ error: errorMessage }), {
-            status: statusCode,
-            headers: { "Content-Type": "application/json" },
-        });
-    } finally {
-        console.log("POST function completed");
     }
 }
 
@@ -214,11 +183,11 @@ function createJwtUrlParameter(consentId: string) {
         exp: now + 300, // Token expires in 5 minutes
     };
 
-    console.log("JWT Header:", JSON.stringify(header, null, 2));
-    console.log("JWT Payload:", JSON.stringify(payload, null, 2));
+    const privateKey = process.env.REVOLUT_PRIVATE_KEY;
 
-    const privateKeyPath = path.resolve("certs/private.key");
-    const privateKey = fs.readFileSync(privateKeyPath, "utf8");
+    if (!privateKey) {
+        throw new Error("Private key not found in environment variables");
+    }
 
     const token = jwt.sign(payload, privateKey, {
         algorithm: "PS256",
@@ -232,7 +201,8 @@ function createJwtUrlParameter(consentId: string) {
 
 // New function to create the authorization URL
 function createAuthorizationUrl(jwtUrlParameter: string) {
-    const baseUrl = `${process.env.REVOLUT_HOST}/ui/index.html`;
+    const baseUrl = `${process.env.REVOLUT_URL}/ui/index.html`;
+    console.log("Authorization URL base:", baseUrl);
     const params = new URLSearchParams({
         response_type: "code id_token",
         scope: "accounts",
@@ -254,5 +224,27 @@ export async function OPTIONS() {
             "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
             "Access-Control-Allow-Headers": "Content-Type, Authorization",
         },
+    });
+}
+
+// Function to validate URLs
+function validateUrls() {
+    const urlVars = [
+        "REVOLUT_HOST",
+        "REVOLUT_URL",
+        "REVOLUT_JWKS_URL",
+        "REVOLUT_REDIRECT_URI",
+        "REVOLUT_API_URL",
+    ];
+    urlVars.forEach((varName) => {
+        const url = process.env[varName];
+        if (!url) {
+            throw new Error(`${varName} is not set`);
+        }
+        try {
+            new URL(url);
+        } catch (error) {
+            throw new Error(`Invalid ${varName}: ${url}`);
+        }
     });
 }

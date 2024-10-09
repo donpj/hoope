@@ -1,17 +1,22 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useCallback, useEffect } from "react";
 import {
   View,
   Text,
   TextInput,
   Button,
-  StyleSheet,
   ActivityIndicator,
-  Alert, // Add this import at the top of the file
+  StyleSheet,
+  Alert,
+  SafeAreaView,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
 } from "react-native";
+import { useRouter, useLocalSearchParams } from "expo-router";
 import { useAuth } from "@clerk/clerk-expo";
-import { useLocalSearchParams, useRouter } from "expo-router";
 import * as WebBrowser from "expo-web-browser";
-import axios from "axios";
+
+const API_BASE_URL = process.env.REVOLUT_API_URL || "https://api.hoope.co";
 
 export default function RevolutPaymentScreen() {
   const [paymentAmount, setPaymentAmount] = useState("");
@@ -83,6 +88,10 @@ export default function RevolutPaymentScreen() {
       setLoading(true);
       setError(null);
       const token = await getToken({ template: "supabase" });
+      console.log(
+        "Supabase token obtained:",
+        token ? "Token exists" : "No token"
+      );
 
       const consentDetails = {
         Data: {
@@ -118,26 +127,51 @@ export default function RevolutPaymentScreen() {
         },
       };
 
-      const response = await fetch("/api/revolut-payments-consent", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify(consentDetails),
-      });
+      console.log(
+        "Sending consent request to:",
+        `${API_BASE_URL}/api/revolut-payments-consent`
+      );
+      console.log("Consent details:", JSON.stringify(consentDetails, null, 2));
+
+      const response = await fetch(
+        `${API_BASE_URL}/api/revolut-payments-consent`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify(consentDetails),
+        }
+      );
+
+      console.log("Response status:", response.status);
+      console.log(
+        "Response headers:",
+        JSON.stringify(response.headers, null, 2)
+      );
+
+      const responseText = await response.text();
+      console.log("Response body:", responseText);
 
       if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+        throw new Error(
+          `HTTP error! status: ${response.status}, body: ${responseText}`
+        );
       }
 
-      const data = await response.json();
+      const data = JSON.parse(responseText);
+      console.log("Parsed response data:", JSON.stringify(data, null, 2));
+
       setConsentId(data.consentData.Data.ConsentId);
       setPaymentStatus(data.consentData.Data.Status);
       setAuthorizationUrl(data.authorizationUrl);
     } catch (err) {
       setError(err.message);
       console.error("Error creating consent:", err);
+      if (err.response) {
+        console.error("Error response:", await err.response.text());
+      }
     } finally {
       setLoading(false);
     }
@@ -146,7 +180,7 @@ export default function RevolutPaymentScreen() {
   const exchangeCodeForToken = async (code: string) => {
     try {
       const token = await getToken({ template: "supabase" });
-      const response = await fetch("/api/revolut-payments", {
+      const response = await fetch(`${API_BASE_URL}/api/revolut-payments`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -167,9 +201,7 @@ export default function RevolutPaymentScreen() {
       const data = await response.json();
       console.log("Token exchange response:", data);
 
-      // Store the access token
       setAccessToken(data.access_token);
-      // Also store the refresh token if provided
       if (data.refresh_token) {
         setRefreshToken(data.refresh_token);
       }
@@ -240,7 +272,7 @@ export default function RevolutPaymentScreen() {
         JSON.stringify(paymentDetails, null, 2)
       );
 
-      const response = await fetch("/api/revolut-payments", {
+      const response = await fetch(`${API_BASE_URL}/api/revolut-payments`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -287,7 +319,7 @@ export default function RevolutPaymentScreen() {
         throw new Error("Domestic Payment ID is required");
       }
 
-      const response = await fetch("/api/revolut-payments", {
+      const response = await fetch(`${API_BASE_URL}/api/revolut-payments`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -319,69 +351,92 @@ export default function RevolutPaymentScreen() {
   };
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Create Payment Consent</Text>
-      <TextInput
-        style={styles.input}
-        placeholder="Amount (e.g., 500.00)"
-        value={paymentAmount}
-        onChangeText={(text) => {
-          const newText = text.replace(/[^0-9.]/g, "");
-          const parts = newText.split(".");
-          if (parts.length > 2) {
-            return;
-          }
-          if (parts[1] && parts[1].length > 2) {
-            return;
-          }
-          setPaymentAmount(newText);
-        }}
-        keyboardType="numeric"
-      />
-      <TextInput
-        style={styles.input}
-        placeholder="Reference"
-        value={paymentReference}
-        onChangeText={setPaymentReference}
-      />
-      <Button
-        title="Create Payment Consent"
-        onPress={handleCreateConsent}
-        disabled={loading}
-      />
-      {loading && <ActivityIndicator size="large" />}
-      {error && <Text style={styles.error}>Error: {error}</Text>}
-      {consentId && (
-        <Text style={styles.consentId}>Consent ID: {consentId}</Text>
-      )}
-      {consentId && accessToken && (
-        <Button
-          title="Initiate Payment"
-          onPress={initiatePayment}
-          disabled={loading}
-        />
-      )}
-      {domesticPaymentId && (
-        <Button
-          title="Check Payment Status"
-          onPress={checkPaymentStatus}
-          disabled={loading}
-        />
-      )}
-      {paymentStatus && (
-        <Text style={styles.paymentStatus}>
-          Payment Status: {paymentStatus}
-        </Text>
-      )}
-      <Button title="Back to Accounts" onPress={() => router.back()} />
-    </View>
+    <SafeAreaView style={styles.safeArea}>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        style={styles.container}
+      >
+        <ScrollView contentContainerStyle={styles.scrollContent}>
+          <Text style={styles.title}>Create Payment Consent</Text>
+          <TextInput
+            style={styles.input}
+            placeholder="Amount (e.g., 500.00)"
+            value={paymentAmount}
+            onChangeText={(text) => {
+              const newText = text.replace(/[^0-9.]/g, "");
+              const parts = newText.split(".");
+              if (parts.length > 2) {
+                return;
+              }
+              if (parts[1] && parts[1].length > 2) {
+                return;
+              }
+              setPaymentAmount(newText);
+            }}
+            keyboardType="numeric"
+          />
+          <TextInput
+            style={styles.input}
+            placeholder="Reference"
+            value={paymentReference}
+            onChangeText={setPaymentReference}
+          />
+          <View style={styles.buttonContainer}>
+            <Button
+              title="Create Payment Consent"
+              onPress={handleCreateConsent}
+              disabled={loading}
+            />
+          </View>
+          {loading && <ActivityIndicator size="large" />}
+          {error && <Text style={styles.error}>Error: {error}</Text>}
+          {consentId && (
+            <Text style={styles.consentId}>Consent ID: {consentId}</Text>
+          )}
+          {consentId && accessToken && (
+            <View style={styles.buttonContainer}>
+              <Button
+                title="Initiate Payment"
+                onPress={initiatePayment}
+                disabled={loading}
+              />
+            </View>
+          )}
+          {domesticPaymentId && (
+            <View style={styles.buttonContainer}>
+              <Button
+                title="Check Payment Status"
+                onPress={checkPaymentStatus}
+                disabled={loading}
+              />
+            </View>
+          )}
+          {paymentStatus && (
+            <Text style={styles.paymentStatus}>
+              Payment Status: {paymentStatus}
+            </Text>
+          )}
+          <View style={styles.buttonContainer}>
+            <Button title="Back to Accounts" onPress={() => router.back()} />
+          </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: "white",
+  },
   container: {
     flex: 1,
+  },
+  scrollContent: {
+    flexGrow: 1,
     padding: 20,
+    paddingBottom: 100,
   },
   title: {
     fontSize: 20,
@@ -395,16 +450,20 @@ const styles = StyleSheet.create({
     marginBottom: 10,
     paddingHorizontal: 10,
   },
+  buttonContainer: {
+    marginVertical: 10,
+  },
   error: {
     color: "red",
     marginTop: 10,
   },
-  paymentStatus: {
-    marginTop: 10,
-    fontWeight: "bold",
-  },
   consentId: {
     marginTop: 10,
     fontWeight: "bold",
+  },
+  paymentStatus: {
+    marginTop: 10,
+    fontWeight: "bold",
+    color: "green",
   },
 });

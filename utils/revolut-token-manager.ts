@@ -1,8 +1,4 @@
 import axios from "axios";
-import fs from "fs";
-import path from "path";
-
-const TOKEN_FILE = path.join(process.cwd(), "revolut-token.json");
 
 interface TokenData {
     accessToken: string;
@@ -11,18 +7,26 @@ interface TokenData {
 }
 
 function saveTokens(tokenData: TokenData) {
-    fs.writeFileSync(TOKEN_FILE, JSON.stringify(tokenData));
-    console.log("Tokens saved to file");
+    process.env.REVOLUT_ACCESS_TOKEN = tokenData.accessToken;
+    process.env.REVOLUT_REFRESH_TOKEN = tokenData.refreshToken;
+    process.env.REVOLUT_TOKEN_EXPIRATION = tokenData.expirationTime.toString();
+    console.log("Tokens saved to environment variables");
 }
 
 function loadTokens(): TokenData | null {
-    try {
-        const data = fs.readFileSync(TOKEN_FILE, "utf8");
-        return JSON.parse(data);
-    } catch (error) {
-        console.log("No token file found or error reading file");
-        return null;
+    const accessToken = process.env.REVOLUT_ACCESS_TOKEN;
+    const refreshToken = process.env.REVOLUT_REFRESH_TOKEN;
+    const expirationTime = process.env.REVOLUT_TOKEN_EXPIRATION;
+
+    if (accessToken && refreshToken && expirationTime) {
+        return {
+            accessToken,
+            refreshToken,
+            expirationTime: parseInt(expirationTime, 10),
+        };
     }
+    console.log("No token data available in environment variables");
+    return null;
 }
 
 export async function storeRevolutTokens(
@@ -62,7 +66,7 @@ async function refreshRevolutToken(
 ): Promise<string | null> {
     try {
         const response = await axios.post(
-            `${process.env.REVOLUT_HOST}/token}`,
+            `${process.env.REVOLUT_HOST}/token`,
             {
                 grant_type: "refresh_token",
                 refresh_token: refreshToken,

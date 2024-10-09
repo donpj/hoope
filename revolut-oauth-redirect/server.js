@@ -34,7 +34,7 @@ app.post("/revolut-exchange-token", async (req, res) => {
     const cert = fs.readFileSync(CERT_PATH);
 
     const response = await axios.post(
-      `${process.env.REVOLUT_HOST}/token}`,
+      `${process.env.REVOLUT_HOST}/token`,
       new URLSearchParams({
         grant_type: "authorization_code",
         code: authCode,
@@ -65,15 +65,12 @@ app.get("/revolut-get-accounts", async (req, res) => {
   }
 
   try {
-    const response = await axios.get(
-      "https://sandbox-oba.revolut.com/accounts",
-      {
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-          "x-fapi-financial-id": "001580000103UAvAAM",
-        },
-      }
-    );
+    const response = await axios.get(`${process.env.REVOLUT_URL}/accounts`, {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "x-fapi-financial-id": "001580000103UAvAAM",
+      },
+    });
 
     res.json(response.data);
   } catch (error) {

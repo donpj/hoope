@@ -15,6 +15,8 @@ import { useAuth } from "@clerk/clerk-expo";
 import * as WebBrowser from "expo-web-browser";
 import { useRouter } from "expo-router";
 
+const API_BASE_URL = process.env.REVOLUT_API_URL || "https://api.hoope.co";
+
 export default function RevolutConsentScreen() {
   const { getToken } = useAuth();
   const router = useRouter();
@@ -82,7 +84,7 @@ export default function RevolutConsentScreen() {
       }
 
       console.log("Sending request to backend...");
-      const response = await fetch("/api/revolut-consent", {
+      const response = await fetch(`${API_BASE_URL}/api/revolut-consent`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -123,8 +125,8 @@ export default function RevolutConsentScreen() {
       setLoading(true);
       const token = await getToken({ template: "supabase" });
 
-      // Exchange the code for an access token
-      const tokenResponse = await fetch("/api/revolut-token", {
+      console.log("Exchanging code for token...");
+      const tokenResponse = await fetch(`${API_BASE_URL}/api/revolut-token`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -133,27 +135,38 @@ export default function RevolutConsentScreen() {
         body: JSON.stringify({ code }),
       });
 
+      const tokenResponseText = await tokenResponse.text();
+      console.log("Token response:", tokenResponseText);
+
       if (!tokenResponse.ok) {
         throw new Error(
-          `Failed to exchange code for token: ${tokenResponse.status}`
+          `Failed to exchange code for token: ${tokenResponse.status} - ${tokenResponseText}`
         );
       }
 
-      const { access_token } = await tokenResponse.json();
+      const { access_token } = JSON.parse(tokenResponseText);
 
-      // Use the access token to fetch accounts
-      const accountsResponse = await fetch("/api/revolut-accounts", {
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Revolut-Access-Token": access_token,
-        },
-      });
+      console.log("Fetching accounts...");
+      const accountsResponse = await fetch(
+        `${API_BASE_URL}/api/revolut-accounts`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Revolut-Access-Token": access_token,
+          },
+        }
+      );
+
+      const accountsResponseText = await accountsResponse.text();
+      console.log("Accounts response:", accountsResponseText);
 
       if (!accountsResponse.ok) {
-        throw new Error(`Failed to fetch accounts: ${accountsResponse.status}`);
+        throw new Error(
+          `Failed to fetch accounts: ${accountsResponse.status} - ${accountsResponseText}`
+        );
       }
 
-      const accountsData = await accountsResponse.json();
+      const accountsData = JSON.parse(accountsResponseText);
       console.log(
         "Fetched accounts data:",
         JSON.stringify(accountsData, null, 2)

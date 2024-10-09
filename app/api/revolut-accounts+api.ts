@@ -1,14 +1,12 @@
 import https from "https";
 import axios from "axios";
-import fs from "fs";
-import path from "path";
 import { getRevolutAccessToken } from "../../utils/revolut-token-manager";
 
 // Step 6: Get the list of accounts
 async function getAccounts(accessToken: string) {
-    const accountsUrl = "https://sandbox-oba.revolut.com/accounts";
-    const cert = fs.readFileSync(path.resolve("certs/transport.pem"));
-    const key = fs.readFileSync(path.resolve("certs/private.key"));
+    const accountsUrl = `${process.env.REVOLUT_URL}/accounts`;
+    const cert = process.env.REVOLUT_CERT;
+    const key = process.env.REVOLUT_PRIVATE_KEY;
 
     console.log("Using access token for accounts request:", accessToken);
 
@@ -16,12 +14,11 @@ async function getAccounts(accessToken: string) {
         const accountsResponse = await axios.get(accountsUrl, {
             headers: {
                 "Authorization": `Bearer ${accessToken}`,
-                "x-fapi-financial-id": "001580000103UAvAAM",
+                "x-fapi-financial-id": process.env.REVOLUT_FINANCIAL_ID,
             },
             httpsAgent: new https.Agent({
                 cert: cert,
                 key: key,
-                rejectUnauthorized: false, // Only for testing, remove in production
             }),
         });
 

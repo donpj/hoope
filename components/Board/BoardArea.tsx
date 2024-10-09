@@ -13,7 +13,6 @@ import {
 } from "react-native";
 import { useSharedValue } from "react-native-reanimated";
 import Carousel, { ICarouselInstance } from "react-native-reanimated-carousel";
-import { Pagination } from "@/components/DynamicCarousel";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 export interface BoardAreaProps {
@@ -28,7 +27,6 @@ const BoardArea = ({ board }: BoardAreaProps) => {
   const [data, setData] = useState<Array<TaskList | TaskListFake>>([
     { id: undefined },
   ]);
-  const progress = useSharedValue<number>(0);
   const ref = useRef<ICarouselInstance>(null);
 
   useEffect(() => {
@@ -50,13 +48,6 @@ const BoardArea = ({ board }: BoardAreaProps) => {
     setData([...data, newItem, { id: undefined }]);
   };
 
-  const onPressPagination = (index: number) => {
-    ref.current?.scrollTo({
-      count: index - progress.value,
-      animated: true,
-    });
-  };
-
   const onListDeleted = (id: string) => {
     setData(data.filter((item) => item.id !== id));
   };
@@ -68,7 +59,6 @@ const BoardArea = ({ board }: BoardAreaProps) => {
         height={height}
         loop={false}
         ref={ref}
-        onProgressChange={progress}
         defaultScrollOffsetValue={scrollOffsetValue}
         data={data}
         pagingEnabled={true}
@@ -108,15 +98,6 @@ const BoardArea = ({ board }: BoardAreaProps) => {
           </>
         )}
       />
-      <Pagination.Basic
-        progress={progress}
-        data={data}
-        dotStyle={{ backgroundColor: "#ffffff5c", borderRadius: 40 }}
-        size={8}
-        activeDotStyle={{ backgroundColor: "#fff" }}
-        containerStyle={{ gap: 10, marginTop: 10 }}
-        onPress={onPressPagination}
-      />
     </SafeAreaView>
   );
 };
@@ -130,4 +111,5 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
 });
+
 export default BoardArea;

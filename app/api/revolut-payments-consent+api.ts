@@ -5,19 +5,30 @@ import path from "path";
 import { createJws } from "@/utils/jws-helper";
 import jwt from "jsonwebtoken";
 
-const agent = new https.Agent({
-    cert: fs.readFileSync(path.resolve("certs/transport.pem")),
-    key: fs.readFileSync(path.resolve("certs/private.key")),
-    rejectUnauthorized: false, // Only for testing, remove in production
-});
-
 export async function POST(request: Request) {
+    console.log("Revolut payments consent API route called");
     try {
+        validateUrls();
         const requestBody = await request.json();
         console.log(
             "Payment consent request body:",
             JSON.stringify(requestBody, null, 2),
         );
+
+        const cert = process.env.REVOLUT_CERT;
+        const key = process.env.REVOLUT_PRIVATE_KEY;
+
+        if (!cert || !key) {
+            throw new Error(
+                "SSL certificate or private key not found in environment variables",
+            );
+        }
+
+        const httpsAgent = new https.Agent({
+            cert: cert,
+            key: key,
+            rejectUnauthorized: false, // Only for testing, remove in production
+        });
 
         // Step 1: Get client credentials token
         const tokenUrl = `${process.env.REVOLUT_HOST}/token`;
@@ -29,17 +40,13 @@ export async function POST(request: Request) {
 
         console.log("Token request data:", tokenData.toString());
         console.log("REVOLUT_CLIENT_ID:", process.env.REVOLUT_CLIENT_ID);
+        console.log("REVOLUT_HOST:", process.env.REVOLUT_HOST);
 
         const tokenResponse = await axios.post(tokenUrl, tokenData, {
             headers: {
                 "Content-Type": "application/x-www-form-urlencoded",
-                "Authorization": `Basic ${
-                    Buffer.from(
-                        `${process.env.REVOLUT_CLIENT_ID}:${process.env.REVOLUT_CLIENT_SECRET}`,
-                    ).toString("base64")
-                }`,
             },
-            httpsAgent: agent,
+            httpsAgent: httpsAgent,
         });
 
         console.log("Token response:", tokenResponse.data);
@@ -51,7 +58,7 @@ export async function POST(request: Request) {
 
         // Step 2: Create payment consent
         const consentUrl =
-            `${process.env.REVOLUT_HOST}/domestic-payment-consents`;
+            `${process.env.REVOLUT_URL}/domestic-payment-consents`;
         const jws = createJws(requestBody);
         console.log("Generated JWS:", jws);
 
@@ -63,7 +70,7 @@ export async function POST(request: Request) {
                 "x-idempotency-key": Date.now().toString(),
                 "x-jws-signature": jws,
             },
-            httpsAgent: agent,
+            httpsAgent: httpsAgent,
         });
 
         console.log("Consent response status:", consentResponse.status);
@@ -89,10 +96,7 @@ export async function POST(request: Request) {
     } catch (error) {
         console.error("Error creating payment consent:", error);
         return new Response(
-            JSON.stringify({
-                error: "Failed to create payment consent",
-                details: error.response ? error.response.data : error.message,
-            }),
+            JSON.stringify({ error: error.message, stack: error.stack }),
             {
                 status: 500,
                 headers: { "Content-Type": "application/json" },
@@ -102,7 +106,7 @@ export async function POST(request: Request) {
 }
 
 function createAuthorizationUrl(consentId: string) {
-    const baseUrl = `${process.env.REVOLUT_HOST}/ui/index.html`;
+    const baseUrl = `${process.env.REVOLUT_URL}/ui/index.html`;
     const clientId = process.env.REVOLUT_CLIENT_ID;
     const redirectUri = process.env.REVOLUT_REDIRECT_URI;
 
@@ -137,15 +141,19 @@ function createAuthorizationUrl(consentId: string) {
         },
     };
 
-    const requestJwt = jwt.sign(payload, privateKey, {
-        algorithm: "PS256",
-        expiresIn: "1h",
-        header: {
-            typ: "JWT",
-            alg: "PS256",
-            kid: process.env.REVOLUT_KID,
+    const requestJwt = jwt.sign(
+        payload,
+        process.env.REVOLUT_PRIVATE_KEY || "",
+        {
+            algorithm: "PS256",
+            expiresIn: "1h",
+            header: {
+                typ: "JWT",
+                alg: "PS256",
+                kid: process.env.REVOLUT_KID,
+            },
         },
-    });
+    );
 
     const params = new URLSearchParams({
         response_type: "code id_token",
@@ -157,4 +165,30 @@ function createAuthorizationUrl(consentId: string) {
     });
 
     return `${baseUrl}?${params.toString()}`;
+}
+
+function validateUrls() {
+    const urlVars = ["REVOLUT_HOST", "REVOLUT_URL", "REVOLUT_REDIRECT_URI"];
+    urlVars.forEach((varName) => {
+        const url = process.env[varName];
+        if (!url) {
+            throw new Error(`${varName} is not set`);
+        }
+        try {
+            new URL(url);
+        } catch (error) {
+            throw new Error(`Invalid ${varName}: ${url}`);
+        }
+    });
+}
+
+export async function OPTIONS() {
+    return new Response(null, {
+        status: 204,
+        headers: {
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+            "Access-Control-Allow-Headers": "Content-Type, Authorization",
+        },
+    });
 }

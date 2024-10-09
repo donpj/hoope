@@ -5,20 +5,26 @@ import path from "path";
 import { createJws } from "../../utils/jws-helper";
 
 async function exchangeCodeForToken(code: string) {
-    const tokenUrl = `${process.env.REVOLUT_HOST}/token}`;
+    const tokenUrl = `${process.env.REVOLUT_HOST}/token`;
     const tokenData = new URLSearchParams({
         grant_type: "authorization_code",
         code: code,
         redirect_uri: process.env.REVOLUT_REDIRECT_URI || "",
+        client_id: process.env.REVOLUT_CLIENT_ID || "",
     });
 
-    const cert = fs.readFileSync(path.resolve("certs/transport.pem"));
-    const key = fs.readFileSync(path.resolve("certs/private.key"));
+    const cert = process.env.REVOLUT_CERT;
+    const key = process.env.REVOLUT_PRIVATE_KEY;
 
     try {
         const response = await axios.post(tokenUrl, tokenData, {
             headers: {
                 "Content-Type": "application/x-www-form-urlencoded",
+                "Authorization": `Basic ${
+                    Buffer.from(
+                        `${process.env.REVOLUT_CLIENT_ID}:${process.env.REVOLUT_CLIENT_SECRET}`,
+                    ).toString("base64")
+                }`,
             },
             httpsAgent: new https.Agent({
                 cert: cert,
@@ -31,14 +37,18 @@ async function exchangeCodeForToken(code: string) {
         return response.data;
     } catch (error) {
         console.error("Error exchanging code for token:", error);
+        if (axios.isAxiosError(error) && error.response) {
+            console.error("Response status:", error.response.status);
+            console.error("Response data:", error.response.data);
+        }
         throw error;
     }
 }
 
 async function initiatePayment(accessToken: string, paymentDetails: any) {
-    const paymentUrl = "https://sandbox-oba.revolut.com/domestic-payments";
-    const cert = fs.readFileSync(path.resolve("certs/transport.pem"));
-    const key = fs.readFileSync(path.resolve("certs/private.key"));
+    const paymentUrl = `${process.env.REVOLUT_URL}/domestic-payments`;
+    const cert = process.env.REVOLUT_CERT;
+    const key = process.env.REVOLUT_PRIVATE_KEY;
 
     // Generate JWS signature
     const jwsSignature = createJws(paymentDetails);
