@@ -62,7 +62,7 @@ async function refreshRevolutToken(
 ): Promise<string | null> {
     try {
         const response = await axios.post(
-            "https://sandbox-oba-auth.revolut.com/token",
+            `${process.env.REVOLUT_HOST}/token}`,
             {
                 grant_type: "refresh_token",
                 refresh_token: refreshToken,

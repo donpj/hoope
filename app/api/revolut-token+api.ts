@@ -6,7 +6,7 @@ import { storeRevolutTokens } from "../../utils/revolut-token-manager";
 
 // Step 5: Exchange the authorization code for an access token
 async function getAccessToken(authCode: string) {
-    const tokenUrl = "https://sandbox-oba-auth.revolut.com/token";
+    const tokenUrl = `${process.env.REVOLUT_HOST}/token}`;
     const tokenData = new URLSearchParams({
         grant_type: "authorization_code",
         code: authCode,

@@ -20,7 +20,7 @@ export async function POST(request: Request) {
         );
 
         // Step 1: Get client credentials token
-        const tokenUrl = "https://sandbox-oba-auth.revolut.com/token";
+        const tokenUrl = `${process.env.REVOLUT_HOST}/token`;
         const tokenData = new URLSearchParams({
             grant_type: "client_credentials",
             scope: "openid payments",
@@ -51,7 +51,7 @@ export async function POST(request: Request) {
 
         // Step 2: Create payment consent
         const consentUrl =
-            "https://sandbox-oba.revolut.com/domestic-payment-consents";
+            `${process.env.REVOLUT_HOST}/domestic-payment-consents`;
         const jws = createJws(requestBody);
         console.log("Generated JWS:", jws);
 
@@ -102,7 +102,7 @@ export async function POST(request: Request) {
 }
 
 function createAuthorizationUrl(consentId: string) {
-    const baseUrl = "https://sandbox-oba.revolut.com/ui/index.html";
+    const baseUrl = `${process.env.REVOLUT_HOST}/ui/index.html`;
     const clientId = process.env.REVOLUT_CLIENT_ID;
     const redirectUri = process.env.REVOLUT_REDIRECT_URI;
 
@@ -116,7 +116,7 @@ function createAuthorizationUrl(consentId: string) {
 
     const payload = {
         iss: clientId,
-        aud: "https://sandbox-oba.revolut.com",
+        aud: `${process.env.REVOLUT_HOST}`,
         response_type: "code id_token",
         client_id: clientId,
         redirect_uri: redirectUri,

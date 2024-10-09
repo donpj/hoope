@@ -5,7 +5,7 @@ import path from "path";
 import { createJws } from "../../utils/jws-helper";
 
 async function exchangeCodeForToken(code: string) {
-    const tokenUrl = "https://sandbox-oba-auth.revolut.com/token";
+    const tokenUrl = `${process.env.REVOLUT_HOST}/token}`;
     const tokenData = new URLSearchParams({
         grant_type: "authorization_code",
         code: code,

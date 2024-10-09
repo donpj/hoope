@@ -12,9 +12,32 @@ export async function POST(request: Request) {
     try {
         console.log("Starting consent creation process");
 
+        // Read certificates from files
+        const certPath = path.join(process.cwd(), "certs", "transport.pem");
+        const keyPath = path.join(process.cwd(), "certs", "private.key");
+        let cert: string, key: string;
+
+        try {
+            cert = fs.readFileSync(certPath, "utf8");
+            key = fs.readFileSync(keyPath, "utf8");
+            console.log("Certificates loaded from files");
+        } catch (err) {
+            console.error("Error reading certificate files:", err);
+            throw new Error(
+                "Failed to read SSL certificate or private key files",
+            );
+        }
+
+        if (!cert || !key) {
+            throw new Error("SSL certificate or private key not found");
+        }
+
+        console.log("Certificate loaded, length:", cert.length);
+        console.log("Key loaded, length:", key.length);
+
         // Step 1: Generate client credentials token
         console.log("Generating client credentials token...");
-        const tokenUrl = "https://sandbox-oba-auth.revolut.com/token";
+        const tokenUrl = `${process.env.REVOLUT_HOST}/token}`;
         const tokenData = new URLSearchParams({
             grant_type: "client_credentials",
             scope: "openid accounts",
@@ -25,9 +48,8 @@ export async function POST(request: Request) {
         console.log("Token request data:", tokenData.toString());
         console.log("REVOLUT_CLIENT_ID:", process.env.REVOLUT_CLIENT_ID);
 
-        // Load certificates
-        const cert = fs.readFileSync(path.resolve("certs/transport.pem"));
-        const key = fs.readFileSync(path.resolve("certs/private.key"));
+        console.log("Certificate loaded, length:", cert.length);
+        console.log("Key loaded, length:", key.length);
 
         const tokenResponse = await axios.post(tokenUrl, tokenData, {
             headers: {
@@ -119,8 +141,16 @@ export async function POST(request: Request) {
             },
         );
     } catch (error) {
-        console.error("Error in consent creation:", error);
-
+        console.error("Detailed error:", error);
+        if (error.response) {
+            console.error("Response data:", error.response.data);
+            console.error("Response status:", error.response.status);
+            console.error("Response headers:", error.response.headers);
+        } else if (error.request) {
+            console.error("No response received:", error.request);
+        } else {
+            console.error("Error setting up request:", error.message);
+        }
         let errorMessage = "An unexpected error occurred";
         let statusCode = 500;
 
@@ -162,10 +192,10 @@ function createJwtUrlParameter(consentId: string) {
     const now = Math.floor(Date.now() / 1000);
     const payload = {
         iss: process.env.REVOLUT_CLIENT_ID,
-        aud: "https://sandbox-oba.revolut.com",
+        aud: process.env.REVOLUT_CLIENT_ID,
         response_type: "code id_token",
         client_id: process.env.REVOLUT_CLIENT_ID || "",
-        redirect_uri: process.env.REVOLUT_REDIRECT_URI || "",
+        redirect_uri: process.env.REVOLUT_HOST || "",
         scope: "accounts",
         state: crypto.randomBytes(16).toString("hex"),
         claims: {
@@ -202,7 +232,7 @@ function createJwtUrlParameter(consentId: string) {
 
 // New function to create the authorization URL
 function createAuthorizationUrl(jwtUrlParameter: string) {
-    const baseUrl = "https://sandbox-oba.revolut.com/ui/index.html";
+    const baseUrl = `${process.env.REVOLUT_HOST}/ui/index.html`;
     const params = new URLSearchParams({
         response_type: "code id_token",
         scope: "accounts",

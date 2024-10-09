@@ -1,0 +1,100 @@
+ LOG  Sending request to backend...
+λ Bundled 356ms app/api/revolut-consent+api.ts (1 module)
+λ app/api/revolut-consent+api.ts ░░░░░░░░░░░░░░░░  0.0% (0/1)λ  WARN  Require cycle: node_modules/jsonwebtoken/node_modules/semver/classes/comparator.js -> node_modules/jsonwebtoken/node_modules/semver/classes/range.js -> node_modules/jsonwebtoken/node_modules/semver/classes/comparator.js
+
+Require cycles are allowed, but can result in uninitialized values. Consider refactoring to remove the need for a cycle. 
+  factory (node_modules/jsonwebtoken/node_modules/semver/classes/range.js:221:16)
+  factory (app/api/revolut-consent+api.ts.bundle?platform=web&dev=true&hot=false&transform.engine=hermes&transform.routerRoot=app&resolver.environment=node&transform.environment=node:18546:17)
+POST function called
+Starting consent creation process
+Certificates loaded from files
+Certificate loaded, length: 1602
+Key loaded, length: 1704
+Generating client credentials token...
+Token request URL: https://sandbox-oba-auth.revolut.com/token
+Token request data: grant_type=client_credentials&scope=openid+accounts&client_id=edfedc4b-bd94-45a2-a3ce-3992b102c935
+REVOLUT_CLIENT_ID: edfedc4b-bd94-45a2-a3ce-3992b102c935
+Certificate loaded, length: 1602
+Key loaded, length: 1704
+Token response status: 200
+Token response data: {
+  "access_token": "eyJraWQiOiJvSjQwLUcxVklxbUU2eUhuYnA4S1E1Qmk2bXciLCJhbGciOiJQUzI1NiJ9.eyJjbGllbnRJZCI6ImVkZmVkYzRiLWJkOTQtNDVhMi1hM2NlLTM5OTJiMTAyYzkzNSIsInNjb3BlcyI6WyJvcGVuaWQiLCJhY2NvdW50cyJdLCJleHAiOjE3Mjg0MDg2OTZ9.qzVAYTAczfM9AEnfB51BNbWXB-fpNcuR9u5Y7_uaxHfFS7tn_WA79ESMRjHBNzcIhcLKKcVC-H61rcXUviJMJ_dEKhPZtl2QUl5UjwvIgHCJI2nEXcsNgIDs9xEMdfr8608J6aBrKAQWyJU4dsB80p5dwRO7HKRj4MakA80CM6S4tVhv6ppl3C7rwuZrqhb6lJYdtlLcGeZlGNeeCfIvGkGVaazoLJiknk6WFxxYnHHYBKrHj7ZRVVKnfhuZRImGgRPwkQ1VC5ovgfvlZhhyqoMaXXG7DPp9tvUH6t06i9Au7FpyVMSBQ65296KYXfS01ktPGoj2ZW7Qgq5f6JZvVw",
+  "token_type": "Bearer",
+  "expires_in": 2399
+}
+Creating account access consent...
+Consent request URL: https://sandbox-oba.revolut.com/account-access-consents
+Consent request data: {
+  "Data": {
+    "Permissions": [
+      "ReadAccountsBasic",
+      "ReadAccountsDetail"
+    ],
+    "ExpirationDateTime": "2024-12-02T00:00:00+00:00",
+    "TransactionFromDateTime": "2024-09-03T00:00:00+00:00",
+    "TransactionToDateTime": "2024-12-03T00:00:00+00:00"
+  },
+  "Risk": {}
+}
+Consent response status: 201
+Consent response data: {
+  "Data": {
+    "Status": "AwaitingAuthorisation",
+    "StatusUpdateDateTime": "2024-10-08T16:51:36.215811Z",
+    "CreationDateTime": "2024-10-08T16:51:36.215811Z",
+    "TransactionToDateTime": "2024-12-03T00:00:00+00:00",
+    "ExpirationDateTime": "2024-12-02T00:00:00+00:00",
+    "Permissions": [
+      "ReadAccountsBasic",
+      "ReadAccountsDetail"
+    ],
+    "ConsentId": "8c0a02bd-f356-48b4-8dac-1fd24b85a39a",
+    "TransactionFromDateTime": "2024-09-03T00:00:00+00:00"
+  },
+  "Risk": {},
+  "Links": {
+    "Self": "https://sandbox-oba.revolut.com/account-access-consents"
+  },
+  "Meta": {
+    "TotalPages": 1
+  }
+}
+JWT Header: {
+  "alg": "PS256",
+  "kid": "oJ40-G1VIqmE6yHnbp8KQ5Bi6mw",
+  "typ": "JWT"
+}
+JWT Payload: {
+  "iss": "edfedc4b-bd94-45a2-a3ce-3992b102c935",
+  "aud": "https://sandbox-oba.revolut.com",
+  "response_type": "code id_token",
+  "client_id": "edfedc4b-bd94-45a2-a3ce-3992b102c935",
+  "redirect_uri": "https://hoope.co/revolut-redirect",
+  "scope": "accounts",
+  "state": "64127cd5601053e35023f5b9383fe1be",
+  "claims": {
+    "id_token": {
+      "acr": {
+        "essential": true,
+        "values": [
+          "urn:openbanking:psd2:sca"
+        ]
+      },
+      "openbanking_intent_id": {
+        "essential": true,
+        "value": "8c0a02bd-f356-48b4-8dac-1fd24b85a39a"
+      }
+    }
+  },
+  "iat": 1728406296,
+  "exp": 1728406596
+}
+Generated JWT: eyJhbGciOiJQUzI1NiIsInR5cCI6IkpXVCIsImtpZCI6Im9KNDAtRzFWSXFtRTZ5SG5icDhLUTVCaTZtdyJ9.eyJpc3MiOiJlZGZlZGM0Yi1iZDk0LTQ1YTItYTNjZS0zOTkyYjEwMmM5MzUiLCJhdWQiOiJodHRwczovL3NhbmRib3gtb2JhLnJldm9sdXQuY29tIiwicmVzcG9uc2VfdHlwZSI6ImNvZGUgaWRfdG9rZW4iLCJjbGllbnRfaWQiOiJlZGZlZGM0Yi1iZDk0LTQ1YTItYTNjZS0zOTkyYjEwMmM5MzUiLCJyZWRpcmVjdF91cmkiOiJodHRwczovL2hvb3BlLmNvL3Jldm9sdXQtcmVkaXJlY3QiLCJzY29wZSI6ImFjY291bnRzIiwic3RhdGUiOiI2NDEyN2NkNTYwMTA1M2UzNTAyM2Y1YjkzODNmZTFiZSIsImNsYWltcyI6eyJpZF90b2tlbiI6eyJhY3IiOnsiZXNzZW50aWFsIjp0cnVlLCJ2YWx1ZXMiOlsidXJuOm9wZW5iYW5raW5nOnBzZDI6c2NhIl19LCJvcGVuYmFua2luZ19pbnRlbnRfaWQiOnsiZXNzZW50aWFsIjp0cnVlLCJ2YWx1ZSI6IjhjMGEwMmJkLWYzNTYtNDhiNC04ZGFjLTFmZDI0Yjg1YTM5YSJ9fX0sImlhdCI6MTcyODQwNjI5NiwiZXhwIjoxNzI4NDA2NTk2fQ.Ba4prGEO0kUa5QQs_vjvQQG1VwnsGbrPbz-k4atTVAiSirM95RPE0GbjSRoXpw2OLmq63-YT3BgkvImJdroR9uUHdOYaxwrRY6rtnnGZvt0RjkD0X3v1YeZmrDkdMyZYHeIzvIx_cgqn_CD2edKjrDrD97FepVFGDqwVW-dnrl3hL16BZj2Ok23oq-RHeRB6MQ28JqED7DTRcRG-qMeD4HoaqtqwWG_QFALs3AlJIkaFVtY2nSwaMB2fDuQk1_aNVOEVotH9v4f3Sj-E0EsUXtbh5t4X8ZBhgVwVovN4zbCiddVm4VIpShJ0ZlJajI7d3QDtMbIjMsi2aN9CpD_bow
+JWT URL Parameter: eyJhbGciOiJQUzI1NiIsInR5cCI6IkpXVCIsImtpZCI6Im9KNDAtRzFWSXFtRTZ5SG5icDhLUTVCaTZtdyJ9.eyJpc3MiOiJlZGZlZGM0Yi1iZDk0LTQ1YTItYTNjZS0zOTkyYjEwMmM5MzUiLCJhdWQiOiJodHRwczovL3NhbmRib3gtb2JhLnJldm9sdXQuY29tIiwicmVzcG9uc2VfdHlwZSI6ImNvZGUgaWRfdG9rZW4iLCJjbGllbnRfaWQiOiJlZGZlZGM0Yi1iZDk0LTQ1YTItYTNjZS0zOTkyYjEwMmM5MzUiLCJyZWRpcmVjdF91cmkiOiJodHRwczovL2hvb3BlLmNvL3Jldm9sdXQtcmVkaXJlY3QiLCJzY29wZSI6ImFjY291bnRzIiwic3RhdGUiOiI2NDEyN2NkNTYwMTA1M2UzNTAyM2Y1YjkzODNmZTFiZSIsImNsYWltcyI6eyJpZF90b2tlbiI6eyJhY3IiOnsiZXNzZW50aWFsIjp0cnVlLCJ2YWx1ZXMiOlsidXJuOm9wZW5iYW5raW5nOnBzZDI6c2NhIl19LCJvcGVuYmFua2luZ19pbnRlbnRfaWQiOnsiZXNzZW50aWFsIjp0cnVlLCJ2YWx1ZSI6IjhjMGEwMmJkLWYzNTYtNDhiNC04ZGFjLTFmZDI0Yjg1YTM5YSJ9fX0sImlhdCI6MTcyODQwNjI5NiwiZXhwIjoxNzI4NDA2NTk2fQ.Ba4prGEO0kUa5QQs_vjvQQG1VwnsGbrPbz-k4atTVAiSirM95RPE0GbjSRoXpw2OLmq63-YT3BgkvImJdroR9uUHdOYaxwrRY6rtnnGZvt0RjkD0X3v1YeZmrDkdMyZYHeIzvIx_cgqn_CD2edKjrDrD97FepVFGDqwVW-dnrl3hL16BZj2Ok23oq-RHeRB6MQ28JqED7DTRcRG-qMeD4HoaqtqwWG_QFALs3AlJIkaFVtY2nSwaMB2fDuQk1_aNVOEVotH9v4f3Sj-E0EsUXtbh5t4X8ZBhgVwVovN4zbCiddVm4VIpShJ0ZlJajI7d3QDtMbIjMsi2aN9CpD_bow
+Authorization URL: https://sandbox-oba.revolut.com/ui/index.html?response_type=code+id_token&scope=accounts&redirect_uri=https%3A%2F%2Fhoope.co%2Frevolut-redirect&client_id=edfedc4b-bd94-45a2-a3ce-3992b102c935&request=eyJhbGciOiJQUzI1NiIsInR5cCI6IkpXVCIsImtpZCI6Im9KNDAtRzFWSXFtRTZ5SG5icDhLUTVCaTZtdyJ9.eyJpc3MiOiJlZGZlZGM0Yi1iZDk0LTQ1YTItYTNjZS0zOTkyYjEwMmM5MzUiLCJhdWQiOiJodHRwczovL3NhbmRib3gtb2JhLnJldm9sdXQuY29tIiwicmVzcG9uc2VfdHlwZSI6ImNvZGUgaWRfdG9rZW4iLCJjbGllbnRfaWQiOiJlZGZlZGM0Yi1iZDk0LTQ1YTItYTNjZS0zOTkyYjEwMmM5MzUiLCJyZWRpcmVjdF91cmkiOiJodHRwczovL2hvb3BlLmNvL3Jldm9sdXQtcmVkaXJlY3QiLCJzY29wZSI6ImFjY291bnRzIiwic3RhdGUiOiI2NDEyN2NkNTYwMTA1M2UzNTAyM2Y1YjkzODNmZTFiZSIsImNsYWltcyI6eyJpZF90b2tlbiI6eyJhY3IiOnsiZXNzZW50aWFsIjp0cnVlLCJ2YWx1ZXMiOlsidXJuOm9wZW5iYW5raW5nOnBzZDI6c2NhIl19LCJvcGVuYmFua2luZ19pbnRlbnRfaWQiOnsiZXNzZW50aWFsIjp0cnVlLCJ2YWx1ZSI6IjhjMGEwMmJkLWYzNTYtNDhiNC04ZGFjLTFmZDI0Yjg1YTM5YSJ9fX0sImlhdCI6MTcyODQwNjI5NiwiZXhwIjoxNzI4NDA2NTk2fQ.Ba4prGEO0kUa5QQs_vjvQQG1VwnsGbrPbz-k4atTVAiSirM95RPE0GbjSRoXpw2OLmq63-YT3BgkvImJdroR9uUHdOYaxwrRY6rtnnGZvt0RjkD0X3v1YeZmrDkdMyZYHeIzvIx_cgqn_CD2edKjrDrD97FepVFGDqwVW-dnrl3hL16BZj2Ok23oq-RHeRB6MQ28JqED7DTRcRG-qMeD4HoaqtqwWG_QFALs3AlJIkaFVtY2nSwaMB2fDuQk1_aNVOEVotH9v4f3Sj-E0EsUXtbh5t4X8ZBhgVwVovN4zbCiddVm4VIpShJ0ZlJajI7d3QDtMbIjMsi2aN9CpD_bow&response_mode=fragment
+POST function completed
+ LOG  Response status: 200
+ LOG  Response headers: [["cache-control","no-store, no-cache, must-revalidate, proxy-revalidate"],["content-encoding","gzip"],["content-type","application/json"],["date","Tue, 08 Oct 2024 16:51:36 GMT"],["expires","0"],["pragma","no-cache"],["surrogate-control","no-store"],["vary","Accept-Encoding"],["x-content-type-options","nosniff"]]
+ LOG  Response body: {"consentData":{"Data":{"Status":"AwaitingAuthorisation","StatusUpdateDateTime":"2024-10-08T16:51:36.215811Z","CreationDateTime":"2024-10-08T16:51:36.215811Z","TransactionToDateTime":"2024-12-03T00:00:00+00:00","ExpirationDateTime":"2024-12-02T00:00:00+00:00","Permissions":["ReadAccountsBasic","ReadAccountsDetail"],"ConsentId":"8c0a02bd-f356-48b4-8dac-1fd24b85a39a","TransactionFromDateTime":"2024-09-03T00:00:00+00:00"},"Risk":{},"Links":{"Self":"https://sandbox-oba.revolut.com/account-access-consents"},"Meta":{"TotalPages":1}},"authorizationUrl":"https://sandbox-oba.revolut.com/ui/index.html?response_type=code+id_token&scope=accounts&redirect_uri=https%3A%2F%2Fhoope.co%2Frevolut-redirect&client_id=edfedc4b-bd94-45a2-a3ce-3992b102c935&request=eyJhbGciOiJQUzI1NiIsInR5cCI6IkpXVCIsImtpZCI6Im9KNDAtRzFWSXFtRTZ5SG5icDhLUTVCaTZtdyJ9.eyJpc3MiOiJlZGZlZGM0Yi1iZDk0LTQ1YTItYTNjZS0zOTkyYjEwMmM5MzUiLCJhdWQiOiJodHRwczovL3NhbmRib3gtb2JhLnJldm9sdXQuY29tIiwicmVzcG9uc2VfdHlwZSI6ImNvZGUgaWRfdG9rZW4iLCJjbGllbnRfaWQiOiJlZGZlZGM0Yi1iZDk0LTQ1YTItYTNjZS0zOTkyYjEwMmM5MzUiLCJyZWRpcmVjdF91cmkiOiJodHRwczovL2hvb3BlLmNvL3Jldm9sdXQtcmVkaXJlY3QiLCJzY29wZSI6ImFjY291bnRzIiwic3RhdGUiOiI2NDEyN2NkNTYwMTA1M2UzNTAyM2Y1YjkzODNmZTFiZSIsImNsYWltcyI6eyJpZF90b2tlbiI6eyJhY3IiOnsiZXNzZW50aWFsIjp0cnVlLCJ2YWx1ZXMiOlsidXJuOm9wZW5iYW5raW5nOnBzZDI6c2NhIl19LCJvcGVuYmFua2luZ19pbnRlbnRfaWQiOnsiZXNzZW50aWFsIjp0cnVlLCJ2YWx1ZSI6IjhjMGEwMmJkLWYzNTYtNDhiNC04ZGFjLTFmZDI0Yjg1YTM5YSJ9fX0sImlhdCI6MTcyODQwNjI5NiwiZXhwIjoxNzI4NDA2NTk2fQ.Ba4prGEO0kUa5QQs_vjvQQG1VwnsGbrPbz-k4atTVAiSirM95RPE0GbjSRoXpw2OLmq63-YT3BgkvImJdroR9uUHdOYaxwrRY6rtnnGZvt0RjkD0X3v1YeZmrDkdMyZYHeIzvIx_cgqn_CD2edKjrDrD97FepVFGDqwVW-dnrl3hL16BZj2Ok23oq-RHeRB6MQ28JqED7DTRcRG-qMeD4HoaqtqwWG_QFALs3AlJIkaFVtY2nSwaMB2fDuQk1_aNVOEVotH9v4f3Sj-E0EsUXtbh5t4X8ZBhgVwVovN4zbCiddVm4VIpShJ0ZlJajI7d3QDtMbIjMsi2aN9CpD_bow&response_mode=fragment"}
+ LOG  Consent Data: {"Data": {"ConsentId": "8c0a02bd-f356-48b4-8dac-1fd24b85a39a", "CreationDateTime": "2024-10-08T16:51:36.215811Z", "ExpirationDateTime": "2024-12-02T00:00:00+00:00", "Permissions": ["ReadAccountsBasic", "ReadAccountsDetail"], "Status": "AwaitingAuthorisation", "StatusUpdateDateTime": "2024-10-08T16:51:36.215811Z", "TransactionFromDateTime": "2024-09-03T00:00:00+00:00", "TransactionToDateTime": "2024-12-03T00:00:00+00:00"}, "Links": {"Self": "https://sandbox-oba.revolut.com/account-access-consents"}, "Meta": {"TotalPages": 1}, "Risk": {}}
+ LOG  Authorization URL: https://sandbox-oba.revolut.com/ui/index.html?response_type=code+id_token&scope=accounts&redirect_uri=https%3A%2F%2Fhoope.co%2Frevolut-redirect&client_id=edfedc4b-bd94-45a2-a3ce-3992b102c935&request=eyJhbGciOiJQUzI1NiIsInR5cCI6IkpXVCIsImtpZCI6Im9KNDAtRzFWSXFtRTZ5SG5icDhLUTVCaTZtdyJ9.eyJpc3MiOiJlZGZlZGM0Yi1iZDk0LTQ1YTItYTNjZS0zOTkyYjEwMmM5MzUiLCJhdWQiOiJodHRwczovL3NhbmRib3gtb2JhLnJldm9sdXQuY29tIiwicmVzcG9uc2VfdHlwZSI6ImNvZGUgaWRfdG9rZW4iLCJjbGllbnRfaWQiOiJlZGZlZGM0Yi1iZDk0LTQ1YTItYTNjZS0zOTkyYjEwMmM5MzUiLCJyZWRpcmVjdF91cmkiOiJodHRwczovL2hvb3BlLmNvL3Jldm9sdXQtcmVkaXJlY3QiLCJzY29wZSI6ImFjY291bnRzIiwic3RhdGUiOiI2NDEyN2NkNTYwMTA1M2UzNTAyM2Y1YjkzODNmZTFiZSIsImNsYWltcyI6eyJpZF90b2tlbiI6eyJhY3IiOnsiZXNzZW50aWFsIjp0cnVlLCJ2YWx1ZXMiOlsidXJuOm9wZW5iYW5raW5nOnBzZDI6c2NhIl19LCJvcGVuYmFua2luZ19pbnRlbnRfaWQiOnsiZXNzZW50aWFsIjp0cnVlLCJ2YWx1ZSI6IjhjMGEwMmJkLWYzNTYtNDhiNC04ZGFjLTFmZDI0Yjg1YTM5YSJ9fX0sImlhdCI6MTcyODQwNjI5NiwiZXhwIjoxNzI4NDA2NTk2fQ.Ba4prGEO0kUa5QQs_vjvQQG1VwnsGbrPbz-k4atTVAiSirM95RPE0GbjSRoXpw2OLmq63-YT3BgkvImJdroR9uUHdOYaxwrRY6rtnnGZvt0RjkD0X3v1YeZmrDkdMyZYHeIzvIx_cgqn_CD2edKjrDrD97FepVFGDqwVW-dnrl3hL16BZj2Ok23oq-RHeRB6MQ28JqED7DTRcRG-qMeD4HoaqtqwWG_QFALs3AlJIkaFVtY2nSwaMB2fDuQk1_aNVOEVotH9v4f3Sj-E0EsUXtbh5t4X8ZBhgVwVovN4zbCiddVm4VIpShJ0ZlJajI7d3QDtMbIjMsi2aN9CpD_bow&response_mode=fragment

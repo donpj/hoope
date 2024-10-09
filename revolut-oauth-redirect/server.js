@@ -34,7 +34,7 @@ app.post("/revolut-exchange-token", async (req, res) => {
     const cert = fs.readFileSync(CERT_PATH);
 
     const response = await axios.post(
-      "https://sandbox-oba-auth.revolut.com/token",
+      `${process.env.REVOLUT_HOST}/token}`,
       new URLSearchParams({
         grant_type: "authorization_code",
         code: authCode,

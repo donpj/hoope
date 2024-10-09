@@ -1,0 +1,109 @@
+λ Bundled 57ms app/api/revolut-consent+api.ts (1 module)
+λ app/api/revolut-consent+api.ts ░░░░░░░░░░░░░░░░  0.0% (0/1)λ  WARN  Require cycle: node_modules/jsonwebtoken/node_modules/semver/classes/comparator.js -> node_modules/jsonwebtoken/node_modules/semver/classes/range.js -> node_modules/jsonwebtoken/node_modules/semver/classes/comparator.js
+
+Require cycles are allowed, but can result in uninitialized values. Consider refactoring to remove the need for a cycle. 
+  factory (node_modules/jsonwebtoken/node_modules/semver/classes/range.js:199:20)
+  factory (node_modules/jsonwebtoken/node_modules/semver/classes/comparator.js:125:5)
+POST function called
+Environment variables: [
+  'LDFLAGS',
+  'npm_config_legacy_peer_deps',
+  'TERM_PROGRAM',
+  'NODE',
+  'INIT_CWD',
+  'NVM_CD_FLAGS',
+  'ANDROID_HOME',
+  'TERM',
+  'SHELL',
+  'npm_config_metrics_registry',
+  'CPPFLAGS',
+  'HOMEBREW_REPOSITORY',
+  'TMPDIR',
+  'npm_config_global_prefix',
+  'TERM_PROGRAM_VERSION',
+  'ZDOTDIR',
+  'ORIGINAL_XDG_CURRENT_DESKTOP',
+  'MallocNanoZone',
+  'COLOR',
+  'npm_config_noproxy',
+  'npm_config_local_prefix',
+  'NVM_DIR',
+  'USER',
+  'COMMAND_MODE',
+  'npm_config_globalconfig',
+  'SSH_AUTH_SOCK',
+  '__CF_USER_TEXT_ENCODING',
+  'npm_execpath',
+  'PATH',
+  'npm_package_json',
+  '_',
+  'npm_config_userconfig',
+  'npm_config_init_module',
+  'USER_ZDOTDIR',
+  '__CFBundleIdentifier',
+  'npm_command',
+  'PWD',
+  'npm_lifecycle_event',
+  'EDITOR',
+  'npm_package_name',
+  'LANG',
+  'npm_config_npm_version',
+  'VSCODE_GIT_ASKPASS_EXTRA_ARGS',
+  'XPC_FLAGS',
+  'npm_config_node_gyp',
+  'RBENV_SHELL',
+  'npm_package_version',
+  'XPC_SERVICE_NAME',
+  'VSCODE_INJECTION',
+  'SHLVL',
+  'HOME',
+  'VSCODE_GIT_ASKPASS_MAIN',
+  'HOMEBREW_PREFIX',
+  'npm_config_cache',
+  'LOGNAME',
+  'npm_lifecycle_script',
+  'VSCODE_GIT_IPC_HANDLE',
+  'NVM_BIN',
+  'PKG_CONFIG_PATH',
+  'npm_config_user_agent',
+  'VSCODE_GIT_ASKPASS_NODE',
+  'GIT_ASKPASS',
+  'INFOPATH',
+  'HOMEBREW_CELLAR',
+  'npm_node_execpath',
+  'npm_config_prefix',
+  'COLORTERM',
+  'NODE_ENV',
+  'BABEL_ENV',
+  'EXPO_PUBLIC_SUPABASE_URL',
+  'EXPO_PUBLIC_SUPABASE_ANON_KEY',
+  'EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY',
+  'REVOLUT_CLIENT_ID',
+  'REVOLUT_KID',
+  'REVOLUT_REDIRECT_URI',
+  'REVOLUT_JWKS_URL',
+  'EXPO_PUBLIC_REVOLUT_REDIRECT_URI',
+  'EXPO_PUBLIC_REVOLUT_JWKS_URL',
+  'REVOLUT_FINANCIAL_ID',
+  'RCT_METRO_PORT',
+  'EXPO_DEV_SERVER_ORIGIN',
+  'EXPO_PUBLIC_PROJECT_ROOT',
+  'EXPO_PUBLIC_USE_STATIC',
+  'EXPO_ROUTER_APP_ROOT'
+]
+NETLIFY_FUNCTION_TRANSPORT_CERT exists: false
+NETLIFY_FUNCTION_PRIVATE_KEY exists: false
+Starting consent creation process
+PRIVATE_KEY (first 50 chars): undefined
+Error in consent creation: Error: Certificates not found in environment variables
+    at POST (/Users/gigipiscitelli/HoopeRevolut/hoope/app/api/revolut-consent+api.ts:21:36)
+    at handler (/Users/gigipiscitelli/HoopeRevolut/hoope/node_modules/@expo/server/src/index.ts:197:23)
+    at /Users/gigipiscitelli/HoopeRevolut/hoope/node_modules/@expo/server/src/vendor/http.ts:30:24
+Detailed error: {"stack":"Error: Certificates not found in environment variables\n    at POST (/Users/gigipiscitelli/HoopeRevolut/hoope/app/api/revolut-consent+api.ts:21:36)\n    at handler (/Users/gigipiscitelli/HoopeRevolut/hoope/node_modules/@expo/server/src/index.ts:197:23)\n    at /Users/gigipiscitelli/HoopeRevolut/hoope/node_modules/@expo/server/src/vendor/http.ts:30:24","message":"Certificates not found in environment variables"}
+Stack trace: Error: Certificates not found in environment variables
+    at POST (/Users/gigipiscitelli/HoopeRevolut/hoope/app/api/revolut-consent+api.ts:21:36)
+    at handler (/Users/gigipiscitelli/HoopeRevolut/hoope/node_modules/@expo/server/src/index.ts:197:23)
+    at /Users/gigipiscitelli/HoopeRevolut/hoope/node_modules/@expo/server/src/vendor/http.ts:30:24
+POST function completed
+ LOG  Response status: 500
+ LOG  Response headers: [["cache-control","no-store, no-cache, must-revalidate, proxy-revalidate"],["content-

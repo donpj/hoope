@@ -9,8 +9,8 @@
   status = 404
 
 [functions]
-  # Include everything to ensure dynamic routes can be used.
-  included_files = ["dist/server/**/*"]
+  included_files = ["dist/server/**/*", "certs/**"]
+  node_bundler = "esbuild"
 
 [[headers]]
   for = "/dist/server/_expo/functions/*"
