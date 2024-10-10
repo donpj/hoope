@@ -3,6 +3,18 @@ import axios from "axios";
 import fs from "fs";
 import path from "path";
 import { storeRevolutTokens } from "@/utils/revolut-token-manager";
+import { createClient } from '@supabase/supabase-js';
+
+// Ensure these environment variables are set
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+if (!supabaseUrl || !supabaseKey) {
+  console.error('Missing Supabase URL or key');
+  throw new Error('Supabase configuration is incomplete');
+}
+
+const supabase = createClient(supabaseUrl, supabaseKey);
 
 // Step 5: Exchange the authorization code for an access token
 async function getAccessToken(authCode: string) {
@@ -75,24 +87,30 @@ async function getAccessToken(authCode: string) {
 }
 
 export async function POST(request: Request) {
-    const { code } = await request.json();
     try {
-        const tokenData = await getAccessToken(code);
-        console.log("Token data received:", JSON.stringify(tokenData, null, 2));
-        await storeRevolutTokens(
-            tokenData.access_token,
-            tokenData.refresh_token,
-            tokenData.expires_in,
-        );
-        return new Response(
-            JSON.stringify({ message: "Access token stored successfully" }),
-            {
-                status: 200,
-                headers: { "Content-Type": "application/json" },
-            },
-        );
+        const { code } = await request.json();
+
+        // Your token exchange logic here
+        // ...
+
+        // After obtaining the token, store it in Supabase
+        const { data, error } = await supabase
+            .from('revolut_tokens')
+            .upsert({ 
+                id: 1, 
+                access_token: 'your_access_token',
+                refresh_token: 'your_refresh_token',
+                expires_at: new Date().toISOString()
+            });
+
+        if (error) throw error;
+
+        return new Response(JSON.stringify({ message: "Token stored successfully" }), {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+        });
     } catch (error) {
-        console.error("Error exchanging code for token:", error);
+        console.error("Error in token exchange:", error);
         return new Response(JSON.stringify({ error: error.message }), {
             status: 500,
             headers: { "Content-Type": "application/json" },

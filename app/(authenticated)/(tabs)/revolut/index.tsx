@@ -207,19 +207,18 @@ export default function RevolutConsentScreen() {
   const renderAccount = ({ item }) => (
     <View style={styles.accountItem}>
       <Text style={styles.accountName}>
-        {item.Nickname || item.AccountId || "N/A"}
+        {item.Account[0].Name || "N/A"}, {item.Currency || "N/A"}
       </Text>
-      <Text>Account ID: {item.AccountId || "N/A"}</Text>
-      <Text>Currency: {item.Currency || "N/A"}</Text>
+      <Text>Nickname: {item.Nickname || "N/A"}</Text>
       <Text>Account Type: {item.AccountType || "N/A"}</Text>
       <Text>Account Sub Type: {item.AccountSubType || "N/A"}</Text>
-      <Text>Nickname: {item.Nickname || "N/A"}</Text>
+
       {item.Account && item.Account.length > 0 && (
         <View style={styles.accountDetails}>
           <Text style={styles.subHeader}>Account Details:</Text>
           <Text>Scheme Name: {item.Account[0].SchemeName || "N/A"}</Text>
           <Text>Identification: {item.Account[0].Identification || "N/A"}</Text>
-          <Text>Name: {item.Account[0].Name || "N/A"}</Text>
+
           <Text>
             Secondary Identification:{" "}
             {item.Account[0].SecondaryIdentification || "N/A"}
@@ -281,32 +280,24 @@ export default function RevolutConsentScreen() {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: "white", // or any color that matches your app's theme
+    backgroundColor: "#f2f2f7", // Light gray background
   },
   container: {
     flex: 1,
+    paddingHorizontal: 0,
   },
   scrollContent: {
     flexGrow: 1,
-    padding: 20,
-    paddingBottom: 100, // Add extra padding at the bottom
+    paddingBottom: 20,
   },
   title: {
-    fontSize: 20,
+    fontSize: 28,
     fontWeight: "bold",
-    marginBottom: 10,
+    marginVertical: 20,
+    marginLeft: 10,
+    color: "#000",
   },
-  accountItem: {
-    marginVertical: 10,
-    padding: 10,
-    backgroundColor: "#f0f0f0",
-    borderRadius: 10,
-  },
-  accountName: {
-    fontSize: 18,
-    fontWeight: "bold",
-    marginBottom: 5,
-  },
+
   accountDetails: {
     marginTop: 10,
   },
@@ -315,12 +306,50 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
     marginBottom: 5,
   },
+  accountItem: {
+    marginVertical: 10,
+    marginHorizontal: 10,
+    padding: 15,
+    backgroundColor: "#fff",
+    borderRadius: 12,
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 3.84,
+    elevation: 5,
+  },
+  accountName: {
+    fontSize: 18,
+    fontWeight: "bold",
+    color: "#000",
+    marginBottom: 5,
+  },
+  accountType: {
+    fontSize: 14,
+    color: "#8e8e93",
+    marginBottom: 2,
+  },
+  accountCurrency: {
+    fontSize: 14,
+    color: "#8e8e93",
+    marginBottom: 5,
+  },
+  accountBalance: {
+    fontSize: 20,
+    fontWeight: "600",
+    color: "#000",
+  },
   error: {
-    color: "red",
+    color: "#ff3b30",
     marginTop: 10,
+    marginLeft: 10,
   },
   buttonContainer: {
     marginTop: 20,
-    marginBottom: 40, // Add extra margin at the bottom
+    marginBottom: 40,
+    paddingHorizontal: 10,
   },
 });
