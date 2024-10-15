@@ -104,42 +104,74 @@ async function getTransactions(accessToken: string, accountId: string) {
     }
 }
 
+async function getAccountBalance(accessToken: string, accountId: string) {
+    const balanceUrl =
+        `${process.env.REVOLUT_URL}/accounts/${accountId}/balances`;
+    const cert = process.env.REVOLUT_CERT;
+    const key = process.env.REVOLUT_PRIVATE_KEY;
+
+    console.log("Fetching balance from URL:", balanceUrl);
+
+    try {
+        const balanceResponse = await axios.get(balanceUrl, {
+            headers: {
+                "Authorization": `Bearer ${accessToken}`,
+                "x-fapi-financial-id": process.env.REVOLUT_FINANCIAL_ID,
+            },
+            httpsAgent: new https.Agent({
+                cert: cert,
+                key: key,
+            }),
+        });
+
+        console.log(
+            "Balance response:",
+            JSON.stringify(balanceResponse.data, null, 2),
+        );
+        return balanceResponse.data;
+    } catch (error) {
+        console.error("Error getting account balance:", error);
+        throw error;
+    }
+}
+
 export async function GET(request: Request) {
     try {
-        console.log("Fetching Revolut access token");
-        let accessToken = await getRevolutAccessToken();
-        console.log(
-            "Received access token:",
-            accessToken ? "Token exists" : "No token",
-        );
-
+        const accessToken = await getRevolutAccessToken();
         if (!accessToken) {
-            accessToken = await refreshRevolutToken();
-            if (!accessToken) {
-                return new Response(
-                    JSON.stringify({
-                        error: "No valid access token available",
-                    }),
-                    {
-                        status: 401,
-                        headers: { "Content-Type": "application/json" },
-                    },
-                );
-            }
+            return new Response(
+                JSON.stringify({ error: "No valid access token available" }),
+                {
+                    status: 401,
+                    headers: { "Content-Type": "application/json" },
+                },
+            );
         }
 
         const url = new URL(request.url);
         const accountId = url.searchParams.get("accountId");
 
         if (accountId) {
-            console.log("Fetching transactions for account:", accountId);
-            const transactions = await getTransactions(accessToken, accountId);
-            return new Response(JSON.stringify(transactions), {
-                status: 200,
-                headers: { "Content-Type": "application/json" },
-            });
+            if (url.searchParams.get("balances") === "true") {
+                console.log("Fetching balance for account:", accountId);
+                const balance = await getAccountBalance(accessToken, accountId);
+                return new Response(JSON.stringify(balance), {
+                    status: 200,
+                    headers: { "Content-Type": "application/json" },
+                });
+            } else {
+                console.log("Fetching transactions for account:", accountId);
+                const transactions = await getTransactions(
+                    accessToken,
+                    accountId,
+                );
+                return new Response(JSON.stringify(transactions), {
+                    status: 200,
+                    headers: { "Content-Type": "application/json" },
+                });
+            }
         } else {
-            console.log("Fetching accounts with token");
+            console.log("Fetching accounts");
             const accounts = await getAccounts(accessToken);
             return new Response(JSON.stringify(accounts), {
                 status: 200,
@@ -147,16 +179,10 @@ export async function GET(request: Request) {
             });
         }
     } catch (error) {
-        console.error("Error in API:", sanitizeError(error));
-        return new Response(
-            JSON.stringify({
-                error: error.message,
-                details: sanitizeError(error),
-            }),
-            {
-                status: 500,
-                headers: { "Content-Type": "application/json" },
-            },
-        );
+        console.error("Error in API:", error);
+        return new Response(JSON.stringify({ error: error.message }), {
+            status: 500,
+            headers: { "Content-Type": "application/json" },
+        });
     }
 }

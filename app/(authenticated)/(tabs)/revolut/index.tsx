@@ -28,6 +28,7 @@ export default function RevolutConsentScreen() {
   const [accounts, setAccounts] = useState(null);
   const [transactions, setTransactions] = useState({});
   const [selectedAccount, setSelectedAccount] = useState(null);
+  const [balances, setBalances] = useState({});
 
   const handleDeepLink = useCallback((event) => {
     console.log("Full received URL:", event.url);
@@ -247,6 +248,47 @@ export default function RevolutConsentScreen() {
     }
   };
 
+  const fetchAccountBalance = async (accountId) => {
+    try {
+      setLoading(true);
+      const token = await getToken({ template: "supabase" });
+
+      console.log(`Fetching balance for account: ${accountId}`);
+      const response = await fetch(
+        `${API_BASE_URL}/api/revolut-accounts?accountId=${accountId}&balances=true`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
+      console.log(
+        `Balance response for account ${accountId}:`,
+        JSON.stringify(data, null, 2)
+      );
+
+      if (data.Data && data.Data.Balance && data.Data.Balance[0]) {
+        setBalances((prevState) => ({
+          ...prevState,
+          [accountId]: data.Data.Balance[0],
+        }));
+      } else {
+        throw new Error("Unexpected balance data structure");
+      }
+    } catch (error) {
+      console.error(`Error fetching balance for account ${accountId}:`, error);
+      setError(error.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const renderTransaction = ({ item }) => (
     <View style={styles.transactionItem}>
       <Text style={styles.transactionInfo}>
@@ -263,12 +305,35 @@ export default function RevolutConsentScreen() {
   const renderAccount = ({ item }) => (
     <View style={styles.accountItem}>
       <Text style={styles.accountName}>
-        {item.Account[0].Name}, {item.Currency}
+        {item.Nickname}, {item.Currency}
       </Text>
       <Text>Account ID: {item.AccountId}</Text>
       <Text>
         Type: {item.AccountType} - {item.AccountSubType}
       </Text>
+
+      {balances[item.AccountId] && (
+        <View style={styles.balanceContainer}>
+          <Text style={styles.balanceTitle}>Balance:</Text>
+          <Text style={styles.balanceAmount}>
+            {balances[item.AccountId].Amount.Amount}{" "}
+            {balances[item.AccountId].Amount.Currency}
+          </Text>
+          <Text>Type: {balances[item.AccountId].Type}</Text>
+          <Text>
+            Credit/Debit: {balances[item.AccountId].CreditDebitIndicator}
+          </Text>
+        </View>
+      )}
+
+      <TouchableOpacity
+        style={styles.balanceButton}
+        onPress={() => fetchAccountBalance(item.AccountId)}
+      >
+        <Text style={styles.balanceButtonText}>
+          {balances[item.AccountId] ? "Refresh" : "Fetch"} Balance
+        </Text>
+      </TouchableOpacity>
 
       <TouchableOpacity
         style={styles.transactionButton}
@@ -457,5 +522,30 @@ const styles = StyleSheet.create({
     marginTop: 10,
     fontStyle: "italic",
     color: "#666",
+  },
+  balanceContainer: {
+    marginTop: 10,
+    padding: 10,
+    backgroundColor: "#f0f0f0",
+    borderRadius: 5,
+  },
+  balanceTitle: {
+    fontSize: 16,
+    fontWeight: "bold",
+  },
+  balanceAmount: {
+    fontSize: 18,
+    fontWeight: "bold",
+    color: "#007AFF",
+  },
+  balanceButton: {
+    backgroundColor: "#34C759",
+    padding: 10,
+    borderRadius: 5,
+    marginTop: 10,
+  },
+  balanceButtonText: {
+    color: "#fff",
+    textAlign: "center",
   },
 });
