@@ -54,22 +54,26 @@ export async function getRevolutAccessToken(): Promise<string | null> {
 
     if (Date.now() >= tokenData.expirationTime) {
         console.log("Token has expired, attempting to refresh");
-        return refreshRevolutToken(tokenData.refreshToken);
+        return refreshRevolutToken();
     }
 
     console.log("Returning valid access token");
     return tokenData.accessToken;
 }
 
-async function refreshRevolutToken(
-    refreshToken: string,
-): Promise<string | null> {
+export async function refreshRevolutToken(): Promise<string | null> {
     try {
+        const tokenData = loadTokens();
+        if (!tokenData || !tokenData.refreshToken) {
+            console.error("No refresh token available");
+            return null;
+        }
+
         const response = await axios.post(
             `${process.env.REVOLUT_HOST}/token`,
             {
                 grant_type: "refresh_token",
-                refresh_token: refreshToken,
+                refresh_token: tokenData.refreshToken,
                 client_id: process.env.REVOLUT_CLIENT_ID,
             },
             {

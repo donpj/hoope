@@ -10,6 +10,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   SafeAreaView,
+  TouchableOpacity,
 } from "react-native";
 import { useAuth } from "@clerk/clerk-expo";
 import * as WebBrowser from "expo-web-browser";
@@ -25,6 +26,8 @@ export default function RevolutConsentScreen() {
   const [consentData, setConsentData] = useState(null);
   const [authorizationUrl, setAuthorizationUrl] = useState(null);
   const [accounts, setAccounts] = useState(null);
+  const [transactions, setTransactions] = useState({});
+  const [selectedAccount, setSelectedAccount] = useState(null);
 
   const handleDeepLink = useCallback((event) => {
     console.log("Full received URL:", event.url);
@@ -204,27 +207,93 @@ export default function RevolutConsentScreen() {
     }
   };
 
+  const fetchTransactions = async (accountId) => {
+    try {
+      setLoading(true);
+      const token = await getToken({ template: "supabase" });
+
+      console.log(`Fetching transactions for account: ${accountId}`);
+      const response = await fetch(
+        `${API_BASE_URL}/api/revolut-accounts?accountId=${accountId}`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      const responseText = await response.text();
+      console.log(`Response for account ${accountId}:`, responseText);
+
+      if (!response.ok) {
+        throw new Error(
+          `HTTP error! status: ${response.status}, body: ${responseText}`
+        );
+      }
+
+      const data = JSON.parse(responseText);
+      setTransactions((prevState) => ({
+        ...prevState,
+        [accountId]: data,
+      }));
+    } catch (error) {
+      console.error(
+        `Error fetching transactions for account ${accountId}:`,
+        error
+      );
+      setError(error.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const renderTransaction = ({ item }) => (
+    <View style={styles.transactionItem}>
+      <Text style={styles.transactionInfo}>
+        {item.CreditDebitIndicator === "Credit" ? "Received" : "Sent"}{" "}
+        {item.Amount.Amount} {item.Amount.Currency}
+      </Text>
+      <Text>To: {item.CreditorAccount?.Name || "N/A"}</Text>
+      <Text>Date: {new Date(item.BookingDateTime).toLocaleString()}</Text>
+      <Text>Status: {item.Status}</Text>
+      <Text>Info: {item.TransactionInformation}</Text>
+    </View>
+  );
+
   const renderAccount = ({ item }) => (
     <View style={styles.accountItem}>
       <Text style={styles.accountName}>
-        {item.Nickname || item.AccountId || "N/A"}
+        {item.Account[0].Name}, {item.Currency}
       </Text>
-      <Text>Account ID: {item.AccountId || "N/A"}</Text>
-      <Text>Currency: {item.Currency || "N/A"}</Text>
-      <Text>Account Type: {item.AccountType || "N/A"}</Text>
-      <Text>Account Sub Type: {item.AccountSubType || "N/A"}</Text>
-      <Text>Nickname: {item.Nickname || "N/A"}</Text>
-      {item.Account && item.Account.length > 0 && (
-        <View style={styles.accountDetails}>
-          <Text style={styles.subHeader}>Account Details:</Text>
-          <Text>Scheme Name: {item.Account[0].SchemeName || "N/A"}</Text>
-          <Text>Identification: {item.Account[0].Identification || "N/A"}</Text>
-          <Text>Name: {item.Account[0].Name || "N/A"}</Text>
-          <Text>
-            Secondary Identification:{" "}
-            {item.Account[0].SecondaryIdentification || "N/A"}
-          </Text>
-        </View>
+      <Text>Account ID: {item.AccountId}</Text>
+      <Text>
+        Type: {item.AccountType} - {item.AccountSubType}
+      </Text>
+
+      <TouchableOpacity
+        style={styles.transactionButton}
+        onPress={() => fetchTransactions(item.AccountId)}
+      >
+        <Text style={styles.transactionButtonText}>
+          {transactions[item.AccountId] ? "Refresh" : "View"} Transactions
+        </Text>
+      </TouchableOpacity>
+
+      {transactions[item.AccountId] && (
+        <>
+          <Text style={styles.transactionsHeader}>Transactions</Text>
+          {transactions[item.AccountId].Data.Transaction.length > 0 ? (
+            <FlatList
+              data={transactions[item.AccountId].Data.Transaction}
+              renderItem={renderTransaction}
+              keyExtractor={(transaction) => transaction.TransactionId}
+            />
+          ) : (
+            <Text style={styles.noTransactions}>
+              No transactions found for this account.
+            </Text>
+          )}
+        </>
       )}
     </View>
   );
@@ -281,32 +350,24 @@ export default function RevolutConsentScreen() {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: "white", // or any color that matches your app's theme
+    backgroundColor: "#f2f2f7", // Light gray background
   },
   container: {
     flex: 1,
+    paddingHorizontal: 0,
   },
   scrollContent: {
     flexGrow: 1,
-    padding: 20,
-    paddingBottom: 100, // Add extra padding at the bottom
+    paddingBottom: 20,
   },
   title: {
-    fontSize: 20,
+    fontSize: 28,
     fontWeight: "bold",
-    marginBottom: 10,
+    marginVertical: 20,
+    marginLeft: 10,
+    color: "#000",
   },
-  accountItem: {
-    marginVertical: 10,
-    padding: 10,
-    backgroundColor: "#f0f0f0",
-    borderRadius: 10,
-  },
-  accountName: {
-    fontSize: 18,
-    fontWeight: "bold",
-    marginBottom: 5,
-  },
+
   accountDetails: {
     marginTop: 10,
   },
@@ -315,12 +376,86 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
     marginBottom: 5,
   },
+  accountItem: {
+    marginVertical: 10,
+    marginHorizontal: 10,
+    padding: 15,
+    backgroundColor: "#fff",
+    borderRadius: 12,
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 3.84,
+    elevation: 5,
+  },
+  accountName: {
+    fontSize: 18,
+    fontWeight: "bold",
+    color: "#000",
+    marginBottom: 5,
+  },
+  accountType: {
+    fontSize: 14,
+    color: "#8e8e93",
+    marginBottom: 2,
+  },
+  accountCurrency: {
+    fontSize: 14,
+    color: "#8e8e93",
+    marginBottom: 5,
+  },
+  accountBalance: {
+    fontSize: 20,
+    fontWeight: "600",
+    color: "#000",
+  },
   error: {
-    color: "red",
+    color: "#ff3b30",
     marginTop: 10,
+    marginLeft: 10,
   },
   buttonContainer: {
     marginTop: 20,
-    marginBottom: 40, // Add extra margin at the bottom
+    marginBottom: 40,
+    paddingHorizontal: 10,
+  },
+  transactionButton: {
+    backgroundColor: "#007AFF",
+    padding: 10,
+    borderRadius: 5,
+    marginTop: 10,
+  },
+  transactionButtonText: {
+    color: "#fff",
+    textAlign: "center",
+  },
+  transactionsHeader: {
+    fontSize: 18,
+    fontWeight: "bold",
+    marginTop: 15,
+    marginBottom: 10,
+  },
+  transactionItem: {
+    backgroundColor: "#f9f9f9",
+    padding: 10,
+    marginVertical: 5,
+    borderRadius: 5,
+  },
+  transactionType: {
+    fontWeight: "bold",
+    fontSize: 16,
+  },
+  legItem: {
+    marginLeft: 10,
+    marginTop: 5,
+  },
+  noTransactions: {
+    textAlign: "center",
+    marginTop: 10,
+    fontStyle: "italic",
+    color: "#666",
   },
 });

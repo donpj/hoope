@@ -72,7 +72,6 @@ async function initiatePayment(accessToken: string, paymentDetails: any) {
             httpsAgent: new https.Agent({
                 cert: cert,
                 key: key,
-                rejectUnauthorized: false, // Only for testing, remove in production
             }),
         });
 

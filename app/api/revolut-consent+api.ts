@@ -82,7 +82,15 @@ export async function POST(request: Request) {
 
         const consentData = {
             Data: {
-                Permissions: ["ReadAccountsBasic", "ReadAccountsDetail"],
+                Permissions: [
+                    "ReadAccountsBasic",
+                    "ReadAccountsDetail",
+                    "ReadBalances",
+                    "ReadTransactionsBasic",
+                    "ReadTransactionsDetail",
+                    "ReadTransactionsCredits",
+                    "ReadTransactionsDebits",
+                ],
                 ExpirationDateTime: "2024-12-02T00:00:00+00:00",
                 TransactionFromDateTime: "2024-09-03T00:00:00+00:00",
                 TransactionToDateTime: "2024-12-03T00:00:00+00:00",
