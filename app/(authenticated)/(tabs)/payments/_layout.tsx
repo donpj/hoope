@@ -11,21 +11,21 @@ const Layout = () => {
       <Stack.Screen
         name="index"
         options={{
-          title: "Revolut",
+          title: "",
           headerShown: false,
         }}
       />
       <Stack.Screen
-        name="modal"
+        name="transfers"
         options={{
-          presentation: "modal",
-          animation: "slide_from_bottom",
+          title: "Transfers",
+          headerShown: false,
         }}
       />
       <Stack.Screen
-        name="accounts"
+        name="[id]"
         options={{
-          title: "Payments",
+          title: "",
           headerShown: false,
         }}
       />
@@ -33,21 +33,3 @@ const Layout = () => {
   );
 };
 export default Layout;
-
-/*
-   <Stack.Screen
-        name="(authenticated)/(tabs)/revolut/callback"
-        options={{
-          title: "Payments",
-          headerShown: false,
-        }}
-      />
-      <Stack.Screen
-        name="(authenticated)/(tabs)/revolut/accounts"
-        options={{
-          title: "Payments",
-          headerShown: false,
-        }}
-      />
-
-*/

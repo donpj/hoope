@@ -12,7 +12,7 @@ import {
   Platform,
   ScrollView,
 } from "react-native";
-import { useRouter, useLocalSearchParams } from "expo-router";
+import { useRouter } from "expo-router";
 import { useAuth } from "@clerk/clerk-expo";
 import * as WebBrowser from "expo-web-browser";
 
@@ -29,10 +29,25 @@ export default function RevolutPaymentScreen() {
   const [domesticPaymentId, setDomesticPaymentId] = useState(null);
   const [accessToken, setAccessToken] = useState(null);
   const [refreshToken, setRefreshToken] = useState(null);
+  const [accountDetails, setAccountDetails] = useState(null);
+  const [fetchedAccountDetails, setFetchedAccountDetails] = useState(null);
 
   const { getToken } = useAuth();
   const router = useRouter();
-  const { accountDetails } = useLocalSearchParams();
+
+  useEffect(() => {
+    console.log("Raw accountDetails in Search:", accountDetails);
+    if (accountDetails) {
+      try {
+        const parsed = JSON.parse(accountDetails as string);
+        console.log("Parsed accountDetails in Search:", parsed);
+      } catch (error) {
+        console.error("Error parsing accountDetails in Search:", error);
+      }
+    } else {
+      console.log("No accountDetails provided in Search");
+    }
+  }, [accountDetails]);
 
   const handleDeepLink = useCallback((event) => {
     console.log("Full received URL (Payment):", event.url);
@@ -84,6 +99,13 @@ export default function RevolutPaymentScreen() {
       return;
     }
 
+    const activeAccountDetails = accountDetails || fetchedAccountDetails;
+
+    if (!activeAccountDetails) {
+      setError("Account details not available. Please try again.");
+      return;
+    }
+
     try {
       setLoading(true);
       setError(null);
@@ -100,7 +122,7 @@ export default function RevolutPaymentScreen() {
             EndToEndIdentification: "FRESCO.21302.GFX.20",
             InstructedAmount: {
               Amount: Number(paymentAmount).toFixed(2),
-              Currency: JSON.parse(accountDetails).Currency,
+              Currency: activeAccountDetails.Currency,
             },
             CreditorAccount: {
               SchemeName: "UK.OBIE.SortCodeAccountNumber",
@@ -152,15 +174,16 @@ export default function RevolutPaymentScreen() {
       );
 
       const responseText = await response.text();
-      console.log("Response body:", responseText);
+      console.log("Raw response:", responseText);
 
-      if (!response.ok) {
-        throw new Error(
-          `HTTP error! status: ${response.status}, body: ${responseText}`
-        );
+      let data;
+      try {
+        data = JSON.parse(responseText);
+      } catch (parseError) {
+        console.error("JSON Parse error:", parseError);
+        throw new Error(`Failed to parse response: ${responseText}`);
       }
 
-      const data = JSON.parse(responseText);
       console.log("Parsed response data:", JSON.stringify(data, null, 2));
 
       setConsentId(data.consentData.Data.ConsentId);
@@ -232,6 +255,13 @@ export default function RevolutPaymentScreen() {
         return;
       }
 
+      const activeAccountDetails = accountDetails || fetchedAccountDetails;
+
+      if (!activeAccountDetails) {
+        setError("Account details not available. Please try again.");
+        return;
+      }
+
       const paymentDetails = {
         Data: {
           ConsentId: consentId,
@@ -240,7 +270,7 @@ export default function RevolutPaymentScreen() {
             EndToEndIdentification: "FRESCO.21302.GFX.20",
             InstructedAmount: {
               Amount: Number(paymentAmount).toFixed(2),
-              Currency: JSON.parse(accountDetails).Currency,
+              Currency: activeAccountDetails.Currency,
             },
             CreditorAccount: {
               SchemeName: "UK.OBIE.SortCodeAccountNumber",
@@ -350,6 +380,47 @@ export default function RevolutPaymentScreen() {
     }
   };
 
+  const fetchAccountDetails = async () => {
+    try {
+      setLoading(true);
+      const token = await getToken({ template: "supabase" });
+      const response = await fetch(`${API_BASE_URL}/api/revolut-accounts`, {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
+      console.log("Fetched account details:", JSON.stringify(data, null, 2));
+
+      if (
+        data &&
+        data.Data &&
+        data.Data.Account &&
+        data.Data.Account.length > 0
+      ) {
+        setFetchedAccountDetails(data.Data.Account[0]); // Assuming we're using the first account
+      } else {
+        throw new Error("No account details found");
+      }
+    } catch (error) {
+      console.error("Error fetching account details:", error);
+      setError("Failed to fetch account details");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchAccountDetails();
+  }, []);
+
   return (
     <SafeAreaView style={styles.safeArea}>
       <KeyboardAvoidingView
@@ -357,68 +428,77 @@ export default function RevolutPaymentScreen() {
         style={styles.container}
       >
         <ScrollView contentContainerStyle={styles.scrollContent}>
-          <Text style={styles.title}>Create Payment Consent</Text>
-          <TextInput
-            style={styles.input}
-            placeholder="Amount (e.g., 500.00)"
-            value={paymentAmount}
-            onChangeText={(text) => {
-              const newText = text.replace(/[^0-9.]/g, "");
-              const parts = newText.split(".");
-              if (parts.length > 2) {
-                return;
-              }
-              if (parts[1] && parts[1].length > 2) {
-                return;
-              }
-              setPaymentAmount(newText);
-            }}
-            keyboardType="numeric"
-          />
-          <TextInput
-            style={styles.input}
-            placeholder="Reference"
-            value={paymentReference}
-            onChangeText={setPaymentReference}
-          />
-          <View style={styles.buttonContainer}>
-            <Button
-              title="Create Payment Consent"
-              onPress={handleCreateConsent}
-              disabled={loading}
-            />
-          </View>
-          {loading && <ActivityIndicator size="large" />}
-          {error && <Text style={styles.error}>Error: {error}</Text>}
-          {consentId && (
-            <Text style={styles.consentId}>Consent ID: {consentId}</Text>
-          )}
-          {consentId && accessToken && (
-            <View style={styles.buttonContainer}>
-              <Button
-                title="Initiate Payment"
-                onPress={initiatePayment}
-                disabled={loading}
+          {!accountDetails && !fetchedAccountDetails ? (
+            <Text>Fetching account details...</Text>
+          ) : (
+            <>
+              <Text style={styles.title}>Create Payment Consent</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="Amount (e.g., 500.00)"
+                value={paymentAmount}
+                onChangeText={(text) => {
+                  const newText = text.replace(/[^0-9.]/g, "");
+                  const parts = newText.split(".");
+                  if (parts.length > 2) {
+                    return;
+                  }
+                  if (parts[1] && parts[1].length > 2) {
+                    return;
+                  }
+                  setPaymentAmount(newText);
+                }}
+                keyboardType="numeric"
               />
-            </View>
-          )}
-          {domesticPaymentId && (
-            <View style={styles.buttonContainer}>
-              <Button
-                title="Check Payment Status"
-                onPress={checkPaymentStatus}
-                disabled={loading}
+              <TextInput
+                style={styles.input}
+                placeholder="Reference"
+                value={paymentReference}
+                onChangeText={setPaymentReference}
               />
-            </View>
+              <View style={styles.buttonContainer}>
+                <Button
+                  title="Create Payment Consent"
+                  onPress={handleCreateConsent}
+                  disabled={loading}
+                />
+              </View>
+              {loading && <ActivityIndicator size="large" />}
+              {error && <Text style={styles.error}>Error: {error}</Text>}
+              {consentId && (
+                <Text style={styles.consentId}>Consent ID: {consentId}</Text>
+              )}
+              {consentId && accessToken && (
+                <View style={styles.buttonContainer}>
+                  <Button
+                    title="Initiate Payment"
+                    onPress={initiatePayment}
+                    disabled={loading}
+                  />
+                </View>
+              )}
+              {domesticPaymentId && (
+                <View style={styles.buttonContainer}>
+                  <Button
+                    title="Check Payment Status"
+                    onPress={checkPaymentStatus}
+                    disabled={loading}
+                  />
+                </View>
+              )}
+              {paymentStatus && (
+                <Text style={styles.paymentStatus}>
+                  Payment Status: {paymentStatus}
+                </Text>
+              )}
+              <View style={styles.buttonContainer}>
+                <Button
+                  title="Back to Accounts"
+                  onPress={() => router.back()}
+                />
+              </View>
+            </>
           )}
-          {paymentStatus && (
-            <Text style={styles.paymentStatus}>
-              Payment Status: {paymentStatus}
-            </Text>
-          )}
-          <View style={styles.buttonContainer}>
-            <Button title="Back to Accounts" onPress={() => router.back()} />
-          </View>
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -436,12 +516,17 @@ const styles = StyleSheet.create({
   scrollContent: {
     flexGrow: 1,
     padding: 20,
-    paddingBottom: 100,
+  },
+  loadingText: {
+    fontSize: 16,
+    textAlign: "center",
+    marginTop: 20,
   },
   title: {
-    fontSize: 20,
+    fontSize: 24,
     fontWeight: "bold",
     marginBottom: 20,
+    textAlign: "center",
   },
   input: {
     height: 40,

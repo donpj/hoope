@@ -80,6 +80,7 @@ const styles = StyleSheet.create({
   container: {
     marginTop: 16,
     flex: 1,
+    backgroundColor: "#F1F1F1",
   },
   list: {
     borderColor: Colors.grey,

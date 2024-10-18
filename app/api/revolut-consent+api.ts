@@ -17,6 +17,7 @@ export async function POST(request: Request) {
             },
         );
     }
+
     try {
         const cert = process.env.REVOLUT_CERT;
         const key = process.env.REVOLUT_PRIVATE_KEY;
@@ -74,7 +75,11 @@ export async function POST(request: Request) {
         if (!tokenResponse.data.access_token) {
             throw new Error("Failed to obtain access token");
         }
+
         const { access_token } = tokenResponse.data;
+
+        // Log the full access token
+        console.log("Full access token:", access_token);
 
         // Step 2: Create account access consent
         console.log("Creating account access consent...");
@@ -90,6 +95,13 @@ export async function POST(request: Request) {
                     "ReadTransactionsDetail",
                     "ReadTransactionsCredits",
                     "ReadTransactionsDebits",
+                    "ReadBeneficiariesBasic",
+                    "ReadBeneficiariesDetail",
+                    "ReadDirectDebits",
+                    "ReadScheduledPaymentsBasic",
+                    "ReadScheduledPaymentsDetail",
+                    "ReadStandingOrdersBasic",
+                    "ReadStandingOrdersDetail",
                 ],
                 ExpirationDateTime: "2024-12-02T00:00:00+00:00",
                 TransactionFromDateTime: "2024-09-03T00:00:00+00:00",
@@ -124,7 +136,8 @@ export async function POST(request: Request) {
         );
 
         if (
-            !consentResponse.data.Data || !consentResponse.data.Data.ConsentId
+            !consentResponse.data.Data ||
+            !consentResponse.data.Data.ConsentId
         ) {
             throw new Error("Failed to obtain ConsentId");
         }

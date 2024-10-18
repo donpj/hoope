@@ -3,6 +3,7 @@ import { FontAwesome, Ionicons } from "@expo/vector-icons";
 import { Tabs } from "expo-router";
 import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
+import Octicons from "@expo/vector-icons/Octicons";
 import { Image } from "react-native";
 
 const Layout = () => {
@@ -38,19 +39,19 @@ const Layout = () => {
       <Tabs.Screen
         name="revolut"
         options={{
-          title: "Revolut",
+          title: "Account",
 
           tabBarIcon: ({ size, color }) => (
-            <MaterialIcons name="payment" size={size} color={color} />
+            <MaterialIcons name="account-balance" size={size} color={color} />
           ),
         }}
       />
       <Tabs.Screen
-        name="search"
+        name="payments"
         options={{
-          title: "Search",
+          title: "Payments",
           tabBarIcon: ({ size, color }) => (
-            <Ionicons name="search" size={size} color={color} />
+            <Octicons name="arrow-switch" size={size} color={color} />
           ),
         }}
       />

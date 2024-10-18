@@ -1,36 +1,336 @@
 import React, { useState, useEffect, useCallback } from "react";
 import {
   View,
-  Button,
   Text,
   StyleSheet,
   ActivityIndicator,
   FlatList,
-  ScrollView,
   KeyboardAvoidingView,
   Platform,
   SafeAreaView,
   TouchableOpacity,
+  Modal,
+  Animated,
+  Easing,
+  ScrollView,
 } from "react-native";
 import { useAuth } from "@clerk/clerk-expo";
 import * as WebBrowser from "expo-web-browser";
-import { useRouter } from "expo-router";
+import { useRouter, useLocalSearchParams } from "expo-router";
+import { Ionicons } from "@expo/vector-icons";
+import { Colors } from "@/constants/Colors";
+import { defaultStyles } from "@/constants/Styles";
+import RoundBtn from "@/components/RoundBtn";
+import * as SecureStore from "expo-secure-store";
+import {
+  getRevolutAccessToken,
+  refreshRevolutToken,
+} from "@/utils/revolut-token-manager";
+import CountryFlag from "react-native-country-flag";
 
 const API_BASE_URL = process.env.REVOLUT_API_URL || "https://api.hoope.co";
+
+// Add this interface definition near the top of the file
+interface TransactionType {
+  CreditDebitIndicator: "Credit" | "Debit";
+  TransactionInformation?: string;
+  BookingDateTime: string;
+  MerchantDetails?: {
+    MerchantName?: string;
+  };
+  BankTransactionCode?: {
+    Code: string;
+  };
+  Balance?: {
+    Amount: {
+      Amount: number | string;
+      Currency: string;
+    };
+  };
+  TransactionReference?: string;
+  Amount: {
+    Amount: number | string;
+    Currency: string;
+  };
+  TransactionId: string;
+}
+
+// Add this interface near the top of the file
+interface ConsentData {
+  Data: {
+    ConsentId: string;
+  };
+}
+
+// Add this interface near the top of the file
+interface AccountType {
+  AccountId: string;
+  Nickname?: string;
+  AccountType: string;
+  Currency: string;
+}
+
+const formatNumber = (num: number | string) => {
+  return Number(num).toLocaleString("en-US", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+};
+
+const renderTransaction = ({ item }: { item: TransactionType }) => (
+  <View style={styles.transactionItem}>
+    <View style={styles.circle}>
+      <Ionicons
+        name={item.CreditDebitIndicator === "Credit" ? "add" : "remove"}
+        size={24}
+        color={Colors.dark.text}
+      />
+    </View>
+    <View style={{ flex: 1 }}>
+      <Text style={styles.transactionInfo}>
+        {item.CreditDebitIndicator === "Credit" ? "Received" : "Sent"}
+        {item.TransactionInformation ? `: ${item.TransactionInformation}` : ""}
+      </Text>
+      <Text style={styles.transactionDate}>
+        {new Date(item.BookingDateTime).toLocaleString()}
+      </Text>
+      {item.MerchantDetails && item.MerchantDetails.MerchantName && (
+        <Text style={styles.transactionDetail}>
+          Merchant: {item.MerchantDetails.MerchantName}
+        </Text>
+      )}
+      {item.BankTransactionCode && (
+        <Text style={styles.transactionDetail}>
+          Transaction Code: {item.BankTransactionCode.Code}
+        </Text>
+      )}
+      {item.Balance && (
+        <Text style={styles.transactionDetail}>
+          Balance After: {formatNumber(item.Balance.Amount.Amount)}{" "}
+          {item.Balance.Amount.Currency}
+        </Text>
+      )}
+      {item.TransactionReference && (
+        <Text style={styles.transactionDetail}>
+          Reference: {item.TransactionReference}
+        </Text>
+      )}
+    </View>
+    <Text style={styles.transactionAmount}>
+      {item.CreditDebitIndicator === "Credit" ? "+" : "-"}
+      {formatNumber(item.Amount.Amount)} {item.Amount.Currency}
+    </Text>
+  </View>
+);
+
+const AccountItem = ({
+  item,
+  balances,
+  fetchAccountBalance,
+  transactions,
+  fetchTransactions,
+}: {
+  item: any;
+  balances: any;
+  fetchAccountBalance: (accountId: string) => void;
+  transactions: any;
+  fetchTransactions: (accountId: string) => void;
+}) => {
+  const [showBalance, setShowBalance] = useState(false);
+
+  const toggleBalance = () => {
+    if (!showBalance && !balances[item.AccountId]) {
+      fetchAccountBalance(item.AccountId);
+    }
+    setShowBalance(!showBalance);
+  };
+
+  return (
+    <View style={styles.accountItem}>
+      <Text style={styles.accountName}>
+        {item.Nickname || item.AccountType}
+      </Text>
+      <Text style={styles.accountCurrency}>{item.Currency}</Text>
+
+      <TouchableOpacity onPress={toggleBalance} style={styles.balanceContainer}>
+        {showBalance && balances[item.AccountId] ? (
+          <View>
+            <Text style={styles.balanceAmount}>
+              {balances[item.AccountId].CreditDebitIndicator === "Debit"
+                ? "-"
+                : ""}
+              {item.Currency}{" "}
+              {formatNumber(balances[item.AccountId].Amount.Amount)}
+            </Text>
+            <Text style={styles.balanceType}>
+              {balances[item.AccountId].Type}
+            </Text>
+          </View>
+        ) : (
+          <Text style={styles.showBalanceButton}>Show Balance</Text>
+        )}
+      </TouchableOpacity>
+
+      <View style={styles.actionRow}>
+        <RoundBtn
+          icon="refresh"
+          text={balances[item.AccountId] ? "Refresh Balance" : "Fetch Balance"}
+          onPress={() => fetchAccountBalance(item.AccountId)}
+        />
+        <RoundBtn
+          icon="list"
+          text={
+            transactions[item.AccountId]
+              ? "Refresh Transactions"
+              : "View Transactions"
+          }
+          onPress={() => fetchTransactions(item.AccountId)}
+        />
+      </View>
+
+      {transactions[item.AccountId] && (
+        <>
+          <Text style={defaultStyles.sectionHeader}>Transactions</Text>
+          {transactions[item.AccountId].Data.Transaction.length > 0 ? (
+            <FlatList
+              data={transactions[item.AccountId].Data.Transaction}
+              renderItem={renderTransaction}
+              keyExtractor={(transaction) => transaction.TransactionId}
+              scrollEnabled={false}
+            />
+          ) : (
+            <Text style={styles.noTransactions}>
+              No transactions found for this account.
+            </Text>
+          )}
+        </>
+      )}
+    </View>
+  );
+};
+
+interface AccountsModalProps {
+  visible: boolean;
+  accounts: any[];
+  onClose: () => void;
+  onSelectAccount: (account: any) => void;
+}
+
+// Add this function at the top of your file or in a separate utilities file
+const getCurrencyCountryCode = (currency: string) => {
+  const currencyToCountry: { [key: string]: string } = {
+    USD: "US",
+    EUR: "EU",
+    GBP: "GB",
+    // Add more currency to country mappings as needed
+  };
+  return currencyToCountry[currency] || "N/A"; // Default to US if not found
+};
+
+// Update the AccountsModal component
+const AccountsModal: React.FC<AccountsModalProps> = ({
+  visible,
+  accounts,
+  onClose,
+  onSelectAccount,
+}) => {
+  const [scaleValue] = useState(new Animated.Value(0));
+
+  useEffect(() => {
+    if (visible) {
+      Animated.timing(scaleValue, {
+        toValue: 1,
+        duration: 300,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: true,
+      }).start();
+    } else {
+      Animated.timing(scaleValue, {
+        toValue: 0,
+        duration: 300,
+        easing: Easing.in(Easing.cubic),
+        useNativeDriver: true,
+      }).start();
+    }
+  }, [visible]);
+
+  const renderAccountItem = ({ item }: { item: AccountType }) => (
+    <TouchableOpacity
+      style={styles.modalAccountItem}
+      onPress={() => {
+        onSelectAccount(item);
+        onClose();
+      }}
+    >
+      <View style={styles.modalAccountItemContent}>
+        <CountryFlag
+          isoCode={getCurrencyCountryCode(item.Currency)}
+          size={24}
+          style={styles.modalAccountFlag}
+        />
+        <View style={styles.modalAccountInfo}>
+          <Text style={styles.modalAccountName}>
+            {item.Nickname || item.AccountType}
+          </Text>
+          <Text style={styles.modalAccountCurrency}>{item.Currency}</Text>
+        </View>
+        <Ionicons name="chevron-forward" size={24} color={Colors.gray} />
+      </View>
+    </TouchableOpacity>
+  );
+
+  return (
+    <Modal visible={visible} transparent animationType="none">
+      <Animated.View
+        style={[
+          styles.modalContainer,
+          {
+            transform: [{ scale: scaleValue }],
+          },
+        ]}
+      >
+        <View style={styles.modalContent}>
+          <Text style={styles.modalTitle}>Your Accounts</Text>
+          <FlatList
+            data={accounts}
+            renderItem={renderAccountItem}
+            keyExtractor={(item) => item.AccountId}
+          />
+          <TouchableOpacity style={styles.closeButton} onPress={onClose}>
+            <Text style={styles.closeButtonText}>Close</Text>
+          </TouchableOpacity>
+        </View>
+      </Animated.View>
+    </Modal>
+  );
+};
 
 export default function RevolutConsentScreen() {
   const { getToken } = useAuth();
   const router = useRouter();
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
-  const [consentData, setConsentData] = useState(null);
+  const [error, setError] = useState<string | null>(null);
+  const [consentData, setConsentData] = useState<ConsentData | null>(null);
   const [authorizationUrl, setAuthorizationUrl] = useState(null);
   const [accounts, setAccounts] = useState(null);
   const [transactions, setTransactions] = useState({});
-  const [selectedAccount, setSelectedAccount] = useState(null);
+  const [selectedAccount, setSelectedAccount] = useState<AccountType | null>(
+    null
+  );
   const [balances, setBalances] = useState({});
+  const [modalVisible, setModalVisible] = useState(false);
 
-  const handleDeepLink = useCallback((event) => {
+  const params = useLocalSearchParams();
+
+  useEffect(() => {
+    if (params.selectedAccount) {
+      const account = JSON.parse(params.selectedAccount as string);
+      setSelectedAccount(account);
+      fetchAccountBalance(account.AccountId);
+    }
+  }, [params.selectedAccount]);
+
+  const handleDeepLink = useCallback((event: { url: string }) => {
     console.log("Full received URL:", event.url);
     let url = event.url;
 
@@ -73,7 +373,7 @@ export default function RevolutConsentScreen() {
     }
   }, [authorizationUrl]);
 
-  const handleCreateConsent = async () => {
+  const handleCreateOrRefreshConsent = async () => {
     setLoading(true);
     setError(null);
     setConsentData(null);
@@ -116,9 +416,25 @@ export default function RevolutConsentScreen() {
       setAuthorizationUrl(data.authorizationUrl);
       console.log("Consent Data:", data.consentData);
       console.log("Authorization URL:", data.authorizationUrl);
+
+      // If we have a new authorization URL, open it
+      if (data.authorizationUrl) {
+        WebBrowser.openAuthSessionAsync(
+          data.authorizationUrl,
+          "yourapp://callback"
+        )
+          .then((result) => {
+            if (result.type === "success" && result.url) {
+              handleDeepLink({ url: result.url });
+            }
+          })
+          .catch((err) => console.error("An error occurred", err));
+      }
     } catch (error) {
-      console.error("Error creating consent:", error);
-      setError(error.message || "An unknown error occurred");
+      console.error("Error creating/refreshing consent:", error);
+      setError(
+        error instanceof Error ? error.message : "An unknown error occurred"
+      );
     } finally {
       setLoading(false);
     }
@@ -187,24 +503,11 @@ export default function RevolutConsentScreen() {
         setError("Unexpected account data structure");
       }
     } catch (err) {
-      setError(err.message);
-      console.error("Error fetching accounts:", err);
+      const error = err as Error;
+      setError(error.message);
+      console.error("Error fetching accounts:", error);
     } finally {
       setLoading(false);
-    }
-  };
-
-  const handleNavigateToPayments = () => {
-    if (consentData && consentData.Data && consentData.Data.ConsentId) {
-      router.push({
-        pathname: "/(authenticated)/(tabs)/revolut/payments",
-        params: {
-          consentId: consentData.Data.ConsentId,
-          accountDetails: JSON.stringify(accounts.Data.Account[0]), // Passing the first account for simplicity
-        },
-      });
-    } else {
-      setError("Consent data is not available. Please create consent first.");
     }
   };
 
@@ -289,78 +592,115 @@ export default function RevolutConsentScreen() {
     }
   };
 
-  const renderTransaction = ({ item }) => (
-    <View style={styles.transactionItem}>
-      <Text style={styles.transactionInfo}>
-        {item.CreditDebitIndicator === "Credit" ? "Received" : "Sent"}{" "}
-        {item.Amount.Amount} {item.Amount.Currency}
-      </Text>
-      <Text>To: {item.CreditorAccount?.Name || "N/A"}</Text>
-      <Text>Date: {new Date(item.BookingDateTime).toLocaleString()}</Text>
-      <Text>Status: {item.Status}</Text>
-      <Text>Info: {item.TransactionInformation}</Text>
-    </View>
-  );
+  const renderHeader = () => (
+    <>
+      <TouchableOpacity
+        style={[defaultStyles.pillButtonSmall, styles.connectButton]}
+        onPress={handleCreateOrRefreshConsent}
+      >
+        <Text
+          style={[defaultStyles.buttonTextSmall, { color: Colors.light.text }]}
+        >
+          {consentData ? "Refresh Revolut Consent" : "Connect Revolut Account"}
+        </Text>
+      </TouchableOpacity>
 
-  const renderAccount = ({ item }) => (
-    <View style={styles.accountItem}>
-      <Text style={styles.accountName}>
-        {item.Nickname}, {item.Currency}
-      </Text>
-      <Text>Account ID: {item.AccountId}</Text>
-      <Text>
-        Type: {item.AccountType} - {item.AccountSubType}
-      </Text>
-
-      {balances[item.AccountId] && (
-        <View style={styles.balanceContainer}>
-          <Text style={styles.balanceTitle}>Balance:</Text>
-          <Text style={styles.balanceAmount}>
-            {balances[item.AccountId].Amount.Amount}{" "}
-            {balances[item.AccountId].Amount.Currency}
-          </Text>
-          <Text>Type: {balances[item.AccountId].Type}</Text>
+      {consentData && (
+        <View style={styles.loginDetails}>
+          <Text style={defaultStyles.sectionHeader}>Login Details:</Text>
           <Text>
-            Credit/Debit: {balances[item.AccountId].CreditDebitIndicator}
+            Phone Number: <Text selectable={true}>7208764550</Text>
           </Text>
+          <Text>Pin: 0000</Text>
         </View>
       )}
 
-      <TouchableOpacity
-        style={styles.balanceButton}
-        onPress={() => fetchAccountBalance(item.AccountId)}
-      >
-        <Text style={styles.balanceButtonText}>
-          {balances[item.AccountId] ? "Refresh" : "Fetch"} Balance
-        </Text>
-      </TouchableOpacity>
+      {loading && <ActivityIndicator size="large" color={Colors.primary} />}
+      {error && <Text style={styles.error}>Error: {error}</Text>}
 
-      <TouchableOpacity
-        style={styles.transactionButton}
-        onPress={() => fetchTransactions(item.AccountId)}
-      >
-        <Text style={styles.transactionButtonText}>
-          {transactions[item.AccountId] ? "Refresh" : "View"} Transactions
-        </Text>
-      </TouchableOpacity>
-
-      {transactions[item.AccountId] && (
+      {accounts && accounts.Data && accounts.Data.Account && (
         <>
-          <Text style={styles.transactionsHeader}>Transactions</Text>
-          {transactions[item.AccountId].Data.Transaction.length > 0 ? (
-            <FlatList
-              data={transactions[item.AccountId].Data.Transaction}
-              renderItem={renderTransaction}
-              keyExtractor={(transaction) => transaction.TransactionId}
-            />
-          ) : (
-            <Text style={styles.noTransactions}>
-              No transactions found for this account.
+          <Text style={defaultStyles.sectionHeader}>Your Revolut Account</Text>
+          <TouchableOpacity
+            style={[defaultStyles.pillButtonSmall, styles.accountsButton]}
+            onPress={() => setModalVisible(true)}
+          >
+            <Text
+              style={[
+                defaultStyles.buttonTextSmall,
+                { color: Colors.light.text },
+              ]}
+            >
+              {selectedAccount ? "Accounts" : "Select Account"}
             </Text>
-          )}
+          </TouchableOpacity>
         </>
       )}
-    </View>
+    </>
+  );
+
+  useEffect(() => {
+    const loadSelectedAccount = async () => {
+      try {
+        const savedAccount = await SecureStore.getItemAsync("selectedAccount");
+        if (savedAccount) {
+          setSelectedAccount(JSON.parse(savedAccount));
+        }
+      } catch (error) {
+        console.error("Error loading selected account:", error);
+      }
+    };
+    loadSelectedAccount();
+  }, []);
+
+  const handleSelectAccount = async (account: AccountType) => {
+    setSelectedAccount(account);
+    try {
+      await SecureStore.setItemAsync(
+        "selectedAccount",
+        JSON.stringify(account)
+      );
+    } catch (error) {
+      console.error("Error saving selected account:", error);
+    }
+    fetchAccountBalance(account.AccountId);
+    setModalVisible(false); // Close the modal after selection
+  };
+
+  const fetchWithRetry = useCallback(
+    async (url: string, options: RequestInit) => {
+      try {
+        const accessToken = await getRevolutAccessToken();
+        if (!accessToken) {
+          throw new Error("No valid access token available");
+        }
+
+        options.headers = {
+          ...options.headers,
+          Authorization: `Bearer ${accessToken}`,
+        };
+
+        const response = await fetch(url, options);
+        if (response.status === 401) {
+          // Token might be expired, try to refresh it
+          const newToken = await refreshRevolutToken();
+          if (newToken) {
+            options.headers = {
+              ...options.headers,
+              Authorization: `Bearer ${newToken}`,
+            };
+            return await fetch(url, options);
+          } else {
+            throw new Error("Failed to refresh token");
+          }
+        }
+        return response;
+      } catch (error) {
+        console.error("Error in fetchWithRetry:", error);
+        throw error;
+      }
+    },
+    []
   );
 
   return (
@@ -369,183 +709,225 @@ export default function RevolutConsentScreen() {
         behavior={Platform.OS === "ios" ? "padding" : "height"}
         style={styles.container}
       >
-        {!consentData && (
-          <Button
-            title="Connect Revolut Account"
-            onPress={handleCreateConsent}
-          />
-        )}
-        {loading && <ActivityIndicator size="large" />}
-        {error && <Text style={styles.error}>Error: {error}</Text>}
-        {consentData && (
-          <View>
-            <Text style={styles.title}>Login Details:</Text>
-            <Text>
-              Phone Number: <Text selectable={true}>7208764550</Text>
+        <ScrollView
+          style={{ backgroundColor: Colors.background }}
+          contentContainerStyle={styles.scrollContent}
+        >
+          {renderHeader()}
+          {selectedAccount ? (
+            <AccountItem
+              item={selectedAccount}
+              balances={balances}
+              fetchAccountBalance={fetchAccountBalance}
+              transactions={transactions}
+              fetchTransactions={fetchTransactions}
+            />
+          ) : (
+            <Text style={styles.noAccountSelected}>
+              No account selected. Click "Select Account" to choose an account.
             </Text>
-            <Text>Pin: 0000</Text>
-          </View>
-        )}
-        {accounts && accounts.Data && accounts.Data.Account ? (
-          <FlatList
-            data={accounts.Data.Account}
-            renderItem={renderAccount}
-            keyExtractor={(item) => item.AccountId}
-            ListHeaderComponent={
-              <View>
-                <Text style={styles.title}>Your Revolut Accounts</Text>
-                <Text>Total Pages: {accounts.Meta?.TotalPages || "N/A"}</Text>
-              </View>
-            }
-            ListFooterComponent={
-              <View style={styles.buttonContainer}>
-                <Button
-                  title="Go to Payments"
-                  onPress={handleNavigateToPayments}
-                />
-              </View>
-            }
-          />
-        ) : null}
+          )}
+        </ScrollView>
       </KeyboardAvoidingView>
+      <AccountsModal
+        visible={modalVisible}
+        accounts={accounts?.Data?.Account || []}
+        onClose={() => setModalVisible(false)}
+        onSelectAccount={handleSelectAccount}
+      />
     </SafeAreaView>
   );
 }
-
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: "#f2f2f7", // Light gray background
+    backgroundColor: Colors.background,
   },
   container: {
     flex: 1,
-    paddingHorizontal: 0,
   },
   scrollContent: {
     flexGrow: 1,
-    paddingBottom: 20,
+    paddingHorizontal: 8,
+    paddingBottom: 40,
   },
-  title: {
-    fontSize: 28,
-    fontWeight: "bold",
-    marginVertical: 20,
-    marginLeft: 10,
-    color: "#000",
+  connectButton: {
+    backgroundColor: Colors.primary,
+    alignSelf: "center",
+    marginTop: 20,
+    marginBottom: 10,
   },
-
-  accountDetails: {
-    marginTop: 10,
-  },
-  subHeader: {
-    fontSize: 16,
-    fontWeight: "bold",
-    marginBottom: 5,
+  loginDetails: {
+    marginTop: 20,
+    padding: 20,
+    backgroundColor: Colors.lightGray,
+    borderRadius: 16,
   },
   accountItem: {
     marginVertical: 10,
-    marginHorizontal: 10,
-    padding: 15,
-    backgroundColor: "#fff",
-    borderRadius: 12,
-    shadowColor: "#000",
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 3.84,
-    elevation: 5,
+    padding: 20,
+    backgroundColor: Colors.white,
+    borderRadius: 16,
   },
   accountName: {
-    fontSize: 18,
+    fontSize: 24,
     fontWeight: "bold",
-    color: "#000",
-    marginBottom: 5,
-  },
-  accountType: {
-    fontSize: 14,
-    color: "#8e8e93",
-    marginBottom: 2,
+    color: Colors.light.text,
   },
   accountCurrency: {
-    fontSize: 14,
-    color: "#8e8e93",
-    marginBottom: 5,
-  },
-  accountBalance: {
-    fontSize: 20,
-    fontWeight: "600",
-    color: "#000",
-  },
-  error: {
-    color: "#ff3b30",
-    marginTop: 10,
-    marginLeft: 10,
-  },
-  buttonContainer: {
-    marginTop: 20,
-    marginBottom: 40,
-    paddingHorizontal: 10,
-  },
-  transactionButton: {
-    backgroundColor: "#007AFF",
-    padding: 10,
-    borderRadius: 5,
-    marginTop: 10,
-  },
-  transactionButtonText: {
-    color: "#fff",
-    textAlign: "center",
-  },
-  transactionsHeader: {
-    fontSize: 18,
-    fontWeight: "bold",
-    marginTop: 15,
+    fontSize: 16,
+    color: Colors.gray,
     marginBottom: 10,
   },
-  transactionItem: {
-    backgroundColor: "#f9f9f9",
-    padding: 10,
-    marginVertical: 5,
-    borderRadius: 5,
+  balanceContainer: {
+    marginTop: 10,
+    color: Colors.light.text,
   },
-  transactionType: {
+  balanceAmount: {
+    fontSize: 28,
     fontWeight: "bold",
-    fontSize: 16,
+    color: Colors.light.text,
   },
-  legItem: {
-    marginLeft: 10,
-    marginTop: 5,
+  balanceType: {
+    fontSize: 14,
+    color: Colors.gray,
+  },
+  actionRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginTop: 20,
+  },
+  transactionItem: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    marginVertical: 10,
+  },
+  circle: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: Colors.grey,
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: 16,
+  },
+  transactionInfo: {
+    fontSize: 16,
+    fontWeight: "500",
+  },
+  transactionDate: {
+    fontSize: 12,
+    color: Colors.gray,
+  },
+  transactionDetail: {
+    fontSize: 12,
+    color: Colors.gray,
+    marginTop: 2,
+  },
+  transactionAmount: {
+    fontSize: 16,
+    fontWeight: "bold",
   },
   noTransactions: {
     textAlign: "center",
     marginTop: 10,
     fontStyle: "italic",
-    color: "#666",
+    color: Colors.gray,
   },
-  balanceContainer: {
+  buttonContainer: {
+    marginTop: 20,
+    alignItems: "center",
+    backgroundColor: Colors.primary,
+  },
+  paymentButton: {
+    backgroundColor: Colors.primary,
+  },
+  error: {
+    color: Colors.error,
     marginTop: 10,
-    padding: 10,
-    backgroundColor: "#f0f0f0",
-    borderRadius: 5,
-  },
-  balanceTitle: {
-    fontSize: 16,
-    fontWeight: "bold",
-  },
-  balanceAmount: {
-    fontSize: 18,
-    fontWeight: "bold",
-    color: "#007AFF",
-  },
-  balanceButton: {
-    backgroundColor: "#34C759",
-    padding: 10,
-    borderRadius: 5,
-    marginTop: 10,
-  },
-  balanceButtonText: {
-    color: "#fff",
     textAlign: "center",
+  },
+  showBalanceButton: {
+    color: Colors.primary,
+    fontWeight: "bold",
+    fontSize: 16,
+  },
+  accountButton: {
+    backgroundColor: Colors.primary,
+    alignSelf: "center",
+    marginTop: 20,
+  },
+  noAccountSelected: {
+    textAlign: "center",
+    marginTop: 20,
+    fontSize: 16,
+    color: Colors.gray,
+  },
+  accountsButton: {
+    backgroundColor: Colors.primary,
+    alignSelf: "center",
+    marginTop: 10,
+  },
+  modalContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+  },
+  modalContent: {
+    backgroundColor: Colors.light.background,
+    borderRadius: 20,
+    padding: 20,
+    width: "90%",
+    maxHeight: "80%",
+  },
+  modalTitle: {
+    fontSize: 24,
+    fontWeight: "bold",
+    marginBottom: 20,
+    textAlign: "center",
+    color: Colors.light.text,
+  },
+  modalAccountItem: {
+    marginBottom: 15,
+    padding: 15,
+    backgroundColor: Colors.white,
+    borderRadius: 10,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  modalAccountItemContent: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  modalAccountFlag: {
+    marginRight: 15,
+  },
+  modalAccountInfo: {
+    flex: 1,
+  },
+  modalAccountName: {
+    fontSize: 18,
+    fontWeight: "500",
+    color: Colors.light.text,
+  },
+  modalAccountCurrency: {
+    fontSize: 14,
+    color: Colors.gray,
+  },
+  closeButton: {
+    marginTop: 20,
+    padding: 10,
+    backgroundColor: Colors.primary,
+    borderRadius: 10,
+    alignSelf: "center",
+  },
+  closeButtonText: {
+    color: Colors.light.text,
+    fontSize: 16,
+    fontWeight: "500",
   },
 });

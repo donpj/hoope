@@ -11,6 +11,14 @@ export const Colors = {
   grey: "#A6A3AF",
   fontLight: "#fff",
   fontDark: "#292929",
+  primaryMuted: "#C9C8FA",
+  background: "#F1F1F1",
+  dark: "#141518",
+  gray: "#626D77",
+  lightGray: "#D8DCE2",
+  success: "#4CAF50",
+  error: "#F44336",
+  white: "#fff",
 
   light: {
     text: "#11181C",

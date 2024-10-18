@@ -16,7 +16,7 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.gigipiscitelli.hoopeMvp",
-      "buildNumber": "7",
+      "buildNumber": "9",
       "entitlements": {
         "aps-environment": "development",
         "com.apple.developer.associated-domains": [
@@ -60,8 +60,14 @@
       "favicon": "./assets/images/favicon.png"
     },
     "plugins": [
-      ["expo-router", { "origin": "https://api.hoope.co" }],
-      "expo-secure-store"
+      [
+        "expo-router",
+        {
+          "origin": "https://api.hoope.co"
+        }
+      ],
+      "expo-secure-store",
+      "expo-font"
     ],
     "experiments": {
       "typedRoutes": true
