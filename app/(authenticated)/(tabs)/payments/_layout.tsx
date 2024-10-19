@@ -3,8 +3,13 @@ import { FontAwesome, Ionicons } from "@expo/vector-icons";
 import { Stack } from "expo-router";
 import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
-import { Image } from "react-native";
+import { Image, StyleSheet } from "react-native";
 
+const styles = StyleSheet.create({
+  header: {
+    paddingTop: 200,
+  },
+});
 const Layout = () => {
   return (
     <Stack>
@@ -19,7 +24,7 @@ const Layout = () => {
         name="transfers"
         options={{
           title: "Transfers",
-          headerShown: false,
+          headerShown: true,
         }}
       />
       <Stack.Screen

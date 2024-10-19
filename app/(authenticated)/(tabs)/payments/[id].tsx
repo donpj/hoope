@@ -19,6 +19,8 @@ interface Beneficiary {
   };
   TotalSent: string;
   Email: string;
+  Town: string;
+  Country: string;
 }
 
 export default function BeneficiaryDetails() {
@@ -65,7 +67,11 @@ export default function BeneficiaryDetails() {
         <>
           <DetailItem label="Account Number" value={accountNumber} />
           <DetailItem label="Sort Code" value={sortCode} />
-          <DetailItem label="Country/Region" value="United Kingdom" />
+          <DetailItem
+            label="Country/Region"
+            value={beneficiary.Country || "Not provided"}
+          />
+          <DetailItem label="Town" value={beneficiary.Town || "Not provided"} />
           <DetailItem label="Currency" value="GBP" />
         </>
       );
@@ -76,7 +82,11 @@ export default function BeneficiaryDetails() {
         <>
           <DetailItem label="IBAN" value={iban} />
           <DetailItem label="BIC / SWIFT" value="Not provided" />
-          <DetailItem label="Country/Region" value={country} />
+          <DetailItem
+            label="Country/Region"
+            value={beneficiary.Country || country}
+          />
+          <DetailItem label="Town" value={beneficiary.Town || "Not provided"} />
           <DetailItem label="Currency" value={currency} />
         </>
       );
@@ -87,7 +97,11 @@ export default function BeneficiaryDetails() {
             label="Account Identification"
             value={beneficiary.CreditorAccount.Identification}
           />
-          <DetailItem label="Country/Region" value="Unknown" />
+          <DetailItem
+            label="Country/Region"
+            value={beneficiary.Country || "Unknown"}
+          />
+          <DetailItem label="Town" value={beneficiary.Town || "Not provided"} />
           <DetailItem label="Currency" value="Unknown" />
         </>
       );
@@ -159,6 +173,7 @@ const styles = StyleSheet.create({
   customHeader: {
     flexDirection: "row",
     alignItems: "center",
+    marginTop: 20,
     padding: 16,
     backgroundColor: "#FFFFFF",
     borderBottomWidth: 1,

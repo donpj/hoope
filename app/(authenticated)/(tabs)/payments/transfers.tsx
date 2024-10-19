@@ -3,44 +3,19 @@ import {
   View,
   Text,
   TextInput,
-  Button,
+  TouchableOpacity,
   ActivityIndicator,
   StyleSheet,
-  Alert,
   SafeAreaView,
-  KeyboardAvoidingView,
-  Platform,
   ScrollView,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { useAuth } from "@clerk/clerk-expo";
 import * as WebBrowser from "expo-web-browser";
 import { useLocalSearchParams } from "expo-router";
+import { Ionicons } from "@expo/vector-icons";
 
 const API_BASE_URL = process.env.REVOLUT_API_URL || "https://api.hoope.co";
-
-const BeneficiaryCard = ({ beneficiary }) => {
-  if (!beneficiary) return null;
-
-  return (
-    <View style={styles.beneficiaryCard}>
-      <View style={styles.avatarContainer}>
-        <Text style={styles.avatarText}>
-          {beneficiary.CreditorAccount.Name.substring(0, 2).toUpperCase()}
-        </Text>
-      </View>
-      <View style={styles.beneficiaryInfo}>
-        <Text style={styles.beneficiaryName}>
-          {beneficiary.CreditorAccount.Name}
-        </Text>
-        <Text style={styles.accountDetails}>
-          {beneficiary.CreditorAccount.SchemeName}:{" "}
-          {beneficiary.CreditorAccount.Identification}
-        </Text>
-      </View>
-    </View>
-  );
-};
 
 export default function RevolutPaymentScreen() {
   const [paymentAmount, setPaymentAmount] = useState("");
@@ -129,14 +104,23 @@ export default function RevolutPaymentScreen() {
       return null;
     }
 
+    console.log(
+      "Active Account Details:",
+      JSON.stringify(activeAccountDetails, null, 2)
+    );
+    console.log(
+      "Beneficiary Details:",
+      JSON.stringify(beneficiaryDetails, null, 2)
+    );
+
     return {
       Data: {
         Initiation: {
-          InstructionIdentification: "ACME412",
-          EndToEndIdentification: "FRESCO.21302.GFX.20",
+          InstructionIdentification: "ID412",
+          EndToEndIdentification: "E2E123",
           InstructedAmount: {
             Amount: Number(paymentAmount).toFixed(2),
-            Currency: activeAccountDetails.Currency,
+            Currency: activeAccountDetails.Currency || "GBP",
           },
           CreditorAccount: {
             SchemeName: beneficiaryDetails.CreditorAccount.SchemeName,
@@ -151,14 +135,14 @@ export default function RevolutPaymentScreen() {
       Risk: {
         PaymentContextCode: "EcommerceGoods",
         MerchantCategoryCode: "5967",
-        MerchantCustomerIdentification: "123456",
+        MerchantCustomerIdentification: "1238808123123",
         DeliveryAddress: {
-          AddressLine: ["Not Provided"],
-          StreetName: "Not Provided",
-          BuildingNumber: "Not Provided",
-          PostCode: "Not Provided",
-          TownName: "Not Provided",
-          Country: "GB",
+          AddressLine: ["7"],
+          StreetName: "Apple Street",
+          BuildingNumber: "1",
+          PostCode: "E2 7AA",
+          TownName: "London",
+          Country: "UK",
         },
       },
     };
@@ -331,46 +315,6 @@ export default function RevolutPaymentScreen() {
     }
   };
 
-  const checkPaymentStatus = async () => {
-    try {
-      setLoading(true);
-      const token = await getToken({ template: "supabase" });
-
-      if (!domesticPaymentId) {
-        throw new Error("Domestic Payment ID is required");
-      }
-
-      const response = await fetch(`${API_BASE_URL}/api/revolut-payments`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          action: "checkStatus",
-          domesticPaymentId,
-        }),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(
-          `HTTP error! status: ${response.status}, message: ${
-            errorData.error || "Unknown error"
-          }`
-        );
-      }
-
-      const data = await response.json();
-      setPaymentStatus(data.Data.Status);
-    } catch (err) {
-      setError(err.message);
-      console.error("Error checking payment status:", err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const fetchAccountDetails = async () => {
     try {
       setLoading(true);
@@ -426,20 +370,43 @@ export default function RevolutPaymentScreen() {
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <KeyboardAvoidingView
-        behavior={Platform.OS === "ios" ? "padding" : "height"}
-        style={styles.container}
-      >
-        <ScrollView contentContainerStyle={styles.scrollContent}>
-          <BeneficiaryCard beneficiary={beneficiaryDetails} />
-          {!accountDetails && !fetchedAccountDetails ? (
-            <Text>Fetching account details...</Text>
-          ) : (
-            <>
-              <Text style={styles.title}>Create Payment Consent</Text>
+      <View style={styles.header}>
+        <TouchableOpacity
+          onPress={() => router.back()}
+          style={styles.backButton}
+        >
+          <Ionicons name="arrow-back" size={24} color="black" />
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>Send Money</Text>
+      </View>
+      <ScrollView contentContainerStyle={styles.scrollContent}>
+        {!accountDetails && !fetchedAccountDetails ? (
+          <ActivityIndicator size="large" style={styles.loader} />
+        ) : (
+          <>
+            {beneficiaryDetails && (
+              <View style={styles.beneficiaryCard}>
+                <View style={styles.avatarContainer}>
+                  <Text style={styles.avatarText}>
+                    {getInitials(beneficiaryDetails.CreditorAccount.Name)}
+                  </Text>
+                </View>
+                <View style={styles.beneficiaryInfo}>
+                  <Text style={styles.beneficiaryName}>
+                    {beneficiaryDetails.CreditorAccount.Name}
+                  </Text>
+                  <Text style={styles.accountDetails}>
+                    {beneficiaryDetails.CreditorAccount.SchemeName}:{" "}
+                    {beneficiaryDetails.CreditorAccount.Identification}
+                  </Text>
+                </View>
+              </View>
+            )}
+            <View style={styles.inputContainer}>
+              <Text style={styles.inputLabel}>Amount</Text>
               <TextInput
                 style={styles.input}
-                placeholder="Amount (e.g., 500.00)"
+                placeholder="Enter amount"
                 value={paymentAmount}
                 onChangeText={(text) => {
                   const newText = text.replace(/[^0-9.]/g, "");
@@ -454,57 +421,48 @@ export default function RevolutPaymentScreen() {
                 }}
                 keyboardType="numeric"
               />
+            </View>
+            <View style={styles.inputContainer}>
+              <Text style={styles.inputLabel}>Reference</Text>
               <TextInput
                 style={styles.input}
-                placeholder="Reference"
+                placeholder="Enter reference"
                 value={paymentReference}
                 onChangeText={setPaymentReference}
               />
-              <View style={styles.buttonContainer}>
-                <Button
-                  title="Create Payment Consent"
-                  onPress={handleCreateConsent}
-                  disabled={loading}
-                />
-              </View>
-              {loading && <ActivityIndicator size="large" />}
-              {error && <Text style={styles.error}>Error: {error}</Text>}
-              {consentId && (
-                <Text style={styles.consentId}>Consent ID: {consentId}</Text>
-              )}
-              {consentId && accessToken && (
-                <View style={styles.buttonContainer}>
-                  <Button
-                    title="Initiate Payment"
-                    onPress={initiatePayment}
-                    disabled={loading}
-                  />
-                </View>
-              )}
-              {domesticPaymentId && (
-                <View style={styles.buttonContainer}>
-                  <Button
-                    title="Check Payment Status"
-                    onPress={checkPaymentStatus}
-                    disabled={loading}
-                  />
-                </View>
-              )}
-              {paymentStatus && (
-                <Text style={styles.paymentStatus}>
-                  Payment Status: {paymentStatus}
-                </Text>
-              )}
-              <View style={styles.buttonContainer}>
-                <Button
-                  title="Back to Accounts"
-                  onPress={() => router.back()}
-                />
-              </View>
-            </>
-          )}
-        </ScrollView>
-      </KeyboardAvoidingView>
+            </View>
+            <TouchableOpacity
+              style={styles.sendButton}
+              onPress={handleCreateConsent}
+              disabled={loading}
+            >
+              <Text style={styles.sendButtonText}>Create Payment Consent</Text>
+            </TouchableOpacity>
+            {loading && (
+              <ActivityIndicator size="large" style={styles.loader} />
+            )}
+            {error && <Text style={styles.error}>{error}</Text>}
+            {consentId && (
+              <Text style={styles.consentId}>Consent ID: {consentId}</Text>
+            )}
+            {consentId && accessToken && (
+              <TouchableOpacity
+                style={styles.sendButton}
+                onPress={initiatePayment}
+                disabled={loading}
+              >
+                <Text style={styles.sendButtonText}>Initiate Payment</Text>
+              </TouchableOpacity>
+            )}
+
+            {paymentStatus && (
+              <Text style={styles.paymentStatus}>
+                Payment Status: {paymentStatus}
+              </Text>
+            )}
+          </>
+        )}
+      </ScrollView>
     </SafeAreaView>
   );
 }
@@ -512,56 +470,39 @@ export default function RevolutPaymentScreen() {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: "white",
+    backgroundColor: "#f5f5f5",
   },
-  container: {
-    flex: 1,
+  header: {
+    flexDirection: "row",
+    alignItems: "center",
+    padding: 16,
+    marginTop: 20,
+    backgroundColor: "#ffffff",
+    borderBottomWidth: 1,
+    borderBottomColor: "#e0e0e0",
+  },
+  backButton: {
+    marginRight: 16,
+  },
+  headerTitle: {
+    fontSize: 20,
+    fontWeight: "bold",
   },
   scrollContent: {
-    flexGrow: 1,
-    padding: 20,
-  },
-  loadingText: {
-    fontSize: 16,
-    textAlign: "center",
-    marginTop: 20,
-  },
-  title: {
-    fontSize: 24,
-    fontWeight: "bold",
-    marginBottom: 20,
-    textAlign: "center",
-  },
-  input: {
-    height: 40,
-    borderColor: "gray",
-    borderWidth: 1,
-    marginBottom: 10,
-    paddingHorizontal: 10,
-  },
-  buttonContainer: {
-    marginVertical: 10,
-  },
-  error: {
-    color: "red",
-    marginTop: 10,
-  },
-  consentId: {
-    marginTop: 10,
-    fontWeight: "bold",
-  },
-  paymentStatus: {
-    marginTop: 10,
-    fontWeight: "bold",
-    color: "green",
+    padding: 16,
   },
   beneficiaryCard: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#f0f0f0",
-    borderRadius: 10,
-    padding: 15,
-    marginBottom: 20,
+    backgroundColor: "#ffffff",
+    borderRadius: 8,
+    padding: 16,
+    marginBottom: 16,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
   },
   avatarContainer: {
     width: 50,
@@ -570,7 +511,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#007AFF",
     justifyContent: "center",
     alignItems: "center",
-    marginRight: 15,
+    marginRight: 16,
   },
   avatarText: {
     color: "#ffffff",
@@ -583,10 +524,63 @@ const styles = StyleSheet.create({
   beneficiaryName: {
     fontSize: 18,
     fontWeight: "bold",
-    marginBottom: 5,
+    marginBottom: 4,
   },
   accountDetails: {
     fontSize: 14,
-    color: "#666",
+    color: "#666666",
+  },
+  inputContainer: {
+    marginBottom: 16,
+  },
+  inputLabel: {
+    fontSize: 16,
+    fontWeight: "bold",
+    marginBottom: 8,
+  },
+  input: {
+    backgroundColor: "#ffffff",
+    borderRadius: 8,
+    padding: 12,
+    fontSize: 16,
+  },
+  sendButton: {
+    backgroundColor: "#007AFF",
+    borderRadius: 8,
+    padding: 16,
+    alignItems: "center",
+    marginTop: 16,
+  },
+  sendButtonText: {
+    color: "#ffffff",
+    fontSize: 18,
+    fontWeight: "bold",
+  },
+  loader: {
+    marginTop: 16,
+  },
+  error: {
+    color: "red",
+    marginTop: 16,
+  },
+  consentId: {
+    marginTop: 16,
+    fontSize: 16,
+    fontWeight: "bold",
+  },
+  paymentStatus: {
+    marginTop: 16,
+    fontSize: 16,
+    fontWeight: "bold",
+    color: "green",
   },
 });
+
+function getInitials(name: string): string {
+  return name
+    .split(" ")
+    .map((part) => part[0])
+    .join("")
+    .toUpperCase()
+    .slice(0, 2);
+}
