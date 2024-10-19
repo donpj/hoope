@@ -7,9 +7,12 @@ import {
   ActivityIndicator,
   RefreshControl,
   TouchableOpacity,
+  ScrollView,
+  Modal,
 } from "react-native";
 import { useAuth } from "@clerk/clerk-expo";
 import { useRouter } from "expo-router";
+import { useHeaderHeight } from "@react-navigation/elements";
 
 interface Beneficiary {
   AccountId: string;
@@ -64,6 +67,8 @@ export default function PaymentsIndex() {
   const [error, setError] = useState<string | null>(null);
   const { getToken } = useAuth();
   const router = useRouter();
+  const headerHeight = useHeaderHeight();
+  const [modalVisible, setModalVisible] = useState(false);
 
   const fetchAccountsAndBeneficiaries = useCallback(async () => {
     try {
@@ -192,119 +197,150 @@ export default function PaymentsIndex() {
     [beneficiaries]
   );
 
-  const renderBeneficiary = ({
-    item,
-  }: {
-    item: Beneficiary & { color: string };
-  }) => (
-    <TouchableOpacity
-      style={styles.beneficiaryItem}
-      onPress={() =>
-        router.push({
-          pathname: `/payments/${item.BeneficiaryId}`,
-          params: { beneficiary: JSON.stringify(item) },
-        })
-      }
-    >
-      <View style={[styles.beneficiaryIcon, { backgroundColor: item.color }]}>
-        <Text style={styles.initialsText}>
-          {getInitials(item.CreditorAccount.Name)}
-        </Text>
-      </View>
-      <View style={styles.beneficiaryDetails}>
-        <Text style={styles.beneficiaryName}>{item.CreditorAccount.Name}</Text>
-        <Text style={styles.beneficiaryInfo}>
-          {extractAccountDetails(
-            item.CreditorAccount.SchemeName,
-            item.CreditorAccount.Identification
-          )}
-        </Text>
-      </View>
-      <Text style={styles.chevron}>›</Text>
-    </TouchableOpacity>
-  );
+  const styles = StyleSheet.create({
+    scrollView: {
+      flex: 1,
+      backgroundColor: "#F2F2F7",
+    },
+    scrollViewContent: {
+      flexGrow: 1,
+      paddingTop: headerHeight,
+    },
+    title: {
+      fontSize: 34,
+      fontWeight: "bold",
+      marginVertical: 20,
+      marginHorizontal: 16,
+    },
+    beneficiaryItem: {
+      flexDirection: "row",
+      alignItems: "center",
+      backgroundColor: "#FFFFFF",
+      paddingVertical: 12,
+      paddingHorizontal: 16,
+      borderBottomWidth: 1,
+      borderBottomColor: "#E5E5EA",
+    },
+    beneficiaryIcon: {
+      width: 40,
+      height: 40,
+      borderRadius: 20,
+      justifyContent: "center",
+      alignItems: "center",
+      marginRight: 12,
+    },
+    initialsText: {
+      color: "#FFFFFF",
+      fontSize: 16,
+      fontWeight: "bold",
+    },
+    beneficiaryDetails: {
+      flex: 1,
+    },
+    beneficiaryName: {
+      fontSize: 17,
+      fontWeight: "600",
+      color: "#000000",
+    },
+    beneficiaryInfo: {
+      fontSize: 14,
+      color: "#8E8E93",
+      marginTop: 2,
+    },
+    chevron: {
+      fontSize: 24,
+      color: "#C7C7CC",
+    },
+    errorText: {
+      color: "red",
+      fontSize: 16,
+      textAlign: "center",
+      margin: 20,
+    },
+    emptyText: {
+      fontSize: 17,
+      color: "#8E8E93",
+      textAlign: "center",
+      marginTop: 20,
+    },
+    beneficiaryIconTouchable: {
+      marginRight: 12,
+    },
+    beneficiaryDetailsTouchable: {
+      flex: 1,
+      flexDirection: "row",
+      alignItems: "center",
+    },
+  });
+
+  const openModal = () => {
+    router.push("/payments/PaymentsModal");
+  };
 
   if (loading) return <ActivityIndicator size="large" color="#007AFF" />;
   if (error) return <Text style={styles.errorText}>Error: {error}</Text>;
 
   return (
-    <View style={styles.container}>
-      <FlatList
-        data={beneficiariesWithColors}
-        renderItem={renderBeneficiary}
-        keyExtractor={(item) => item.BeneficiaryId}
+    <View style={{ flex: 1 }}>
+      <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={styles.scrollViewContent}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
         }
-        ListHeaderComponent={<Text style={styles.title}>Beneficiaries</Text>}
-        ListEmptyComponent={
+      >
+        <Text style={styles.title}>Beneficiaries</Text>
+        {beneficiariesWithColors.length === 0 ? (
           <Text style={styles.emptyText}>No beneficiaries found.</Text>
-        }
-      />
+        ) : (
+          beneficiariesWithColors.map((item) => (
+            <View key={item.BeneficiaryId} style={styles.beneficiaryItem}>
+              <TouchableOpacity
+                style={styles.beneficiaryIconTouchable}
+                onPress={() =>
+                  router.push({
+                    pathname: `/payments/${item.BeneficiaryId}`,
+                    params: { beneficiary: JSON.stringify(item) },
+                  })
+                }
+              >
+                <View
+                  style={[
+                    styles.beneficiaryIcon,
+                    { backgroundColor: item.color },
+                  ]}
+                >
+                  <Text style={styles.initialsText}>
+                    {getInitials(item.CreditorAccount.Name)}
+                  </Text>
+                </View>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.beneficiaryDetailsTouchable}
+                onPress={() =>
+                  router.push({
+                    pathname: "/payments/transfers",
+                    params: { beneficiary: JSON.stringify(item) },
+                  })
+                }
+              >
+                <View style={styles.beneficiaryDetails}>
+                  <Text style={styles.beneficiaryName}>
+                    {item.CreditorAccount.Name}
+                  </Text>
+                  <Text style={styles.beneficiaryInfo}>
+                    {extractAccountDetails(
+                      item.CreditorAccount.SchemeName,
+                      item.CreditorAccount.Identification
+                    )}
+                  </Text>
+                </View>
+                <Text style={styles.chevron}>›</Text>
+              </TouchableOpacity>
+            </View>
+          ))
+        )}
+      </ScrollView>
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: "#F2F2F7",
-  },
-  title: {
-    fontSize: 34,
-    fontWeight: "bold",
-    marginVertical: 20,
-    marginHorizontal: 16,
-  },
-  beneficiaryItem: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "#FFFFFF",
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: "#E5E5EA",
-  },
-  beneficiaryIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    justifyContent: "center",
-    alignItems: "center",
-    marginRight: 12,
-  },
-  initialsText: {
-    color: "#FFFFFF",
-    fontSize: 16,
-    fontWeight: "bold",
-  },
-  beneficiaryDetails: {
-    flex: 1,
-  },
-  beneficiaryName: {
-    fontSize: 17,
-    fontWeight: "600",
-    color: "#000000",
-  },
-  beneficiaryInfo: {
-    fontSize: 14,
-    color: "#8E8E93",
-    marginTop: 2,
-  },
-  chevron: {
-    fontSize: 24,
-    color: "#C7C7CC",
-  },
-  errorText: {
-    color: "red",
-    fontSize: 16,
-    textAlign: "center",
-    margin: 20,
-  },
-  emptyText: {
-    fontSize: 17,
-    color: "#8E8E93",
-    textAlign: "center",
-    marginTop: 20,
-  },
-});

@@ -15,32 +15,8 @@ import {
 import { useRouter } from "expo-router";
 import { useAuth } from "@clerk/clerk-expo";
 import * as WebBrowser from "expo-web-browser";
-import { useLocalSearchParams } from "expo-router";
 
 const API_BASE_URL = process.env.REVOLUT_API_URL || "https://api.hoope.co";
-
-const BeneficiaryCard = ({ beneficiary }) => {
-  if (!beneficiary) return null;
-
-  return (
-    <View style={styles.beneficiaryCard}>
-      <View style={styles.avatarContainer}>
-        <Text style={styles.avatarText}>
-          {beneficiary.CreditorAccount.Name.substring(0, 2).toUpperCase()}
-        </Text>
-      </View>
-      <View style={styles.beneficiaryInfo}>
-        <Text style={styles.beneficiaryName}>
-          {beneficiary.CreditorAccount.Name}
-        </Text>
-        <Text style={styles.accountDetails}>
-          {beneficiary.CreditorAccount.SchemeName}:{" "}
-          {beneficiary.CreditorAccount.Identification}
-        </Text>
-      </View>
-    </View>
-  );
-};
 
 export default function RevolutPaymentScreen() {
   const [paymentAmount, setPaymentAmount] = useState("");
@@ -55,11 +31,9 @@ export default function RevolutPaymentScreen() {
   const [refreshToken, setRefreshToken] = useState(null);
   const [accountDetails, setAccountDetails] = useState(null);
   const [fetchedAccountDetails, setFetchedAccountDetails] = useState(null);
-  const [beneficiaryDetails, setBeneficiaryDetails] = useState(null);
 
   const { getToken } = useAuth();
   const router = useRouter();
-  const params = useLocalSearchParams();
 
   useEffect(() => {
     console.log("Raw accountDetails in Search:", accountDetails);
@@ -119,73 +93,67 @@ export default function RevolutPaymentScreen() {
     }
   }, [authorizationUrl, handleDeepLink]);
 
-  const createTransactionDetails = () => {
-    const activeAccountDetails = accountDetails || fetchedAccountDetails;
-
-    if (!activeAccountDetails || !beneficiaryDetails) {
-      setError(
-        "Account details or beneficiary details not available. Please try again."
-      );
-      return null;
-    }
-
-    return {
-      Data: {
-        Initiation: {
-          InstructionIdentification: "ACME412",
-          EndToEndIdentification: "FRESCO.21302.GFX.20",
-          InstructedAmount: {
-            Amount: Number(paymentAmount).toFixed(2),
-            Currency: activeAccountDetails.Currency,
-          },
-          CreditorAccount: {
-            SchemeName: beneficiaryDetails.CreditorAccount.SchemeName,
-            Identification: beneficiaryDetails.CreditorAccount.Identification,
-            Name: beneficiaryDetails.CreditorAccount.Name,
-          },
-          RemittanceInformation: {
-            Unstructured: paymentReference,
-          },
-        },
-      },
-      Risk: {
-        PaymentContextCode: "EcommerceGoods",
-        MerchantCategoryCode: "5967",
-        MerchantCustomerIdentification: "123456",
-        DeliveryAddress: {
-          AddressLine: ["Not Provided"],
-          StreetName: "Not Provided",
-          BuildingNumber: "Not Provided",
-          PostCode: "Not Provided",
-          TownName: "Not Provided",
-          Country: "GB",
-        },
-      },
-    };
-  };
-
   const handleCreateConsent = async () => {
     if (!/^\d+(\.\d{1,2})?$/.test(paymentAmount)) {
       setError("Please enter a valid amount (e.g., 500.00)");
       return;
     }
 
-    const transactionDetails = createTransactionDetails();
-    if (!transactionDetails) return;
+    const activeAccountDetails = accountDetails || fetchedAccountDetails;
+
+    if (!activeAccountDetails) {
+      setError("Account details not available. Please try again.");
+      return;
+    }
 
     try {
       setLoading(true);
       setError(null);
       const token = await getToken({ template: "supabase" });
+      console.log(
+        "Supabase token obtained:",
+        token ? "Token exists" : "No token"
+      );
+
+      const consentDetails = {
+        Data: {
+          Initiation: {
+            InstructionIdentification: "ACME412",
+            EndToEndIdentification: "FRESCO.21302.GFX.20",
+            InstructedAmount: {
+              Amount: Number(paymentAmount).toFixed(2),
+              Currency: activeAccountDetails.Currency,
+            },
+            CreditorAccount: {
+              SchemeName: "UK.OBIE.SortCodeAccountNumber",
+              Identification: "08080021325698",
+              Name: "ACME Inc",
+            },
+            RemittanceInformation: {
+              Unstructured: paymentReference,
+            },
+          },
+        },
+        Risk: {
+          PaymentContextCode: "EcommerceGoods",
+          MerchantCategoryCode: "5967",
+          MerchantCustomerIdentification: "123456",
+          DeliveryAddress: {
+            AddressLine: ["Flat 7", "Acacia Lodge"],
+            StreetName: "Acacia Avenue",
+            BuildingNumber: "27",
+            PostCode: "GU31 2ZZ",
+            TownName: "Sparsholt",
+            Country: "UK",
+          },
+        },
+      };
 
       console.log(
         "Sending consent request to:",
         `${API_BASE_URL}/api/revolut-payments-consent`
       );
-      console.log(
-        "Transaction details:",
-        JSON.stringify(transactionDetails, null, 2)
-      );
+      console.log("Consent details:", JSON.stringify(consentDetails, null, 2));
 
       const response = await fetch(
         `${API_BASE_URL}/api/revolut-payments-consent`,
@@ -195,7 +163,7 @@ export default function RevolutPaymentScreen() {
             "Content-Type": "application/json",
             Authorization: `Bearer ${token}`,
           },
-          body: JSON.stringify(transactionDetails),
+          body: JSON.stringify(consentDetails),
         }
       );
 
@@ -275,22 +243,63 @@ export default function RevolutPaymentScreen() {
       setError(null);
       const token = await getToken({ template: "supabase" });
 
-      if (!consentId || !accessToken) {
+      if (!consentId) {
+        setError("Consent ID is missing. Please create a consent first.");
+        return;
+      }
+
+      if (!accessToken) {
         setError(
-          "Consent ID or Access token is missing. Please create a consent first."
+          "Access token is missing. Please authorize the payment first."
         );
         return;
       }
 
-      const transactionDetails = createTransactionDetails();
-      if (!transactionDetails) return;
+      const activeAccountDetails = accountDetails || fetchedAccountDetails;
 
-      // Add ConsentId to the transaction details
-      transactionDetails.Data.ConsentId = consentId;
+      if (!activeAccountDetails) {
+        setError("Account details not available. Please try again.");
+        return;
+      }
+
+      const paymentDetails = {
+        Data: {
+          ConsentId: consentId,
+          Initiation: {
+            InstructionIdentification: "ACME412",
+            EndToEndIdentification: "FRESCO.21302.GFX.20",
+            InstructedAmount: {
+              Amount: Number(paymentAmount).toFixed(2),
+              Currency: activeAccountDetails.Currency,
+            },
+            CreditorAccount: {
+              SchemeName: "UK.OBIE.SortCodeAccountNumber",
+              Identification: "08080021325698",
+              Name: "ACME Inc",
+            },
+            RemittanceInformation: {
+              Unstructured: paymentReference,
+            },
+          },
+        },
+        Risk: {
+          PaymentContextCode: "EcommerceGoods",
+          MerchantCategoryCode: "5967",
+          MerchantCustomerIdentification: "123456",
+          DeliveryAddress: {
+            AddressLine: ["Flat 7", "Acacia Lodge"],
+            StreetName: "Acacia Avenue",
+            BuildingNumber: "27",
+            PostCode: "GU31 2ZZ",
+            TownName: "Sparsholt",
+            Country: "UK",
+          },
+        },
+      };
 
       console.log(
         "Sending payment details:",
-        JSON.stringify(transactionDetails, null, 2)
+        JSON.stringify(paymentDetails, null, 2)
       );
 
       const response = await fetch(`${API_BASE_URL}/api/revolut-payments`, {
@@ -301,7 +310,7 @@ export default function RevolutPaymentScreen() {
         },
         body: JSON.stringify({
           action: "initiatePayment",
-          paymentDetails: transactionDetails,
+          paymentDetails,
           consentId,
           accessToken,
         }),
@@ -412,18 +421,6 @@ export default function RevolutPaymentScreen() {
     fetchAccountDetails();
   }, []);
 
-  useEffect(() => {
-    if (params.beneficiary) {
-      try {
-        const parsedBeneficiary = JSON.parse(params.beneficiary as string);
-        setBeneficiaryDetails(parsedBeneficiary);
-        console.log("Parsed beneficiary details:", parsedBeneficiary);
-      } catch (error) {
-        console.error("Error parsing beneficiary details:", error);
-      }
-    }
-  }, [params.beneficiary]);
-
   return (
     <SafeAreaView style={styles.safeArea}>
       <KeyboardAvoidingView
@@ -431,7 +428,6 @@ export default function RevolutPaymentScreen() {
         style={styles.container}
       >
         <ScrollView contentContainerStyle={styles.scrollContent}>
-          <BeneficiaryCard beneficiary={beneficiaryDetails} />
           {!accountDetails && !fetchedAccountDetails ? (
             <Text>Fetching account details...</Text>
           ) : (
@@ -554,39 +550,5 @@ const styles = StyleSheet.create({
     marginTop: 10,
     fontWeight: "bold",
     color: "green",
-  },
-  beneficiaryCard: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "#f0f0f0",
-    borderRadius: 10,
-    padding: 15,
-    marginBottom: 20,
-  },
-  avatarContainer: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    backgroundColor: "#007AFF",
-    justifyContent: "center",
-    alignItems: "center",
-    marginRight: 15,
-  },
-  avatarText: {
-    color: "#ffffff",
-    fontSize: 20,
-    fontWeight: "bold",
-  },
-  beneficiaryInfo: {
-    flex: 1,
-  },
-  beneficiaryName: {
-    fontSize: 18,
-    fontWeight: "bold",
-    marginBottom: 5,
-  },
-  accountDetails: {
-    fontSize: 14,
-    color: "#666",
   },
 });

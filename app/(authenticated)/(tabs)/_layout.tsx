@@ -5,17 +5,32 @@ import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import Octicons from "@expo/vector-icons/Octicons";
 import { Image } from "react-native";
+import { BlurView } from "expo-blur";
+import CustomHeader from "@/components/CustomHeader";
 
 const Layout = () => {
   return (
     <Tabs
       screenOptions={{
         tabBarActiveTintColor: Colors.primary,
-        headerStyle: {
-          backgroundColor: Colors.primary,
-        },
-        headerTitleStyle: {
-          color: "white",
+        tabBarBackground: () => (
+          <BlurView
+            intensity={100}
+            tint={"extraLight"}
+            style={{
+              flex: 1,
+              backgroundColor: "rgba(0,0,0,0.05)",
+            }}
+          />
+        ),
+        tabBarStyle: {
+          backgroundColor: "transparent",
+          position: "absolute",
+          bottom: 0,
+          left: 0,
+          right: 0,
+          elevation: 0,
+          borderTopWidth: 0,
         },
       }}
     >
@@ -44,6 +59,8 @@ const Layout = () => {
           tabBarIcon: ({ size, color }) => (
             <MaterialIcons name="account-balance" size={size} color={color} />
           ),
+          header: () => <CustomHeader />,
+          headerTransparent: true,
         }}
       />
       <Tabs.Screen
@@ -53,6 +70,8 @@ const Layout = () => {
           tabBarIcon: ({ size, color }) => (
             <Octicons name="arrow-switch" size={size} color={color} />
           ),
+          header: () => <CustomHeader />,
+          headerTransparent: true,
         }}
       />
       <Tabs.Screen

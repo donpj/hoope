@@ -13,6 +13,7 @@ import {
   Animated,
   Easing,
   ScrollView,
+  RefreshControl,
 } from "react-native";
 import { useAuth } from "@clerk/clerk-expo";
 import * as WebBrowser from "expo-web-browser";
@@ -27,6 +28,7 @@ import {
   refreshRevolutToken,
 } from "@/utils/revolut-token-manager";
 import CountryFlag from "react-native-country-flag";
+import { useHeaderHeight } from "@react-navigation/elements";
 
 const API_BASE_URL = process.env.REVOLUT_API_URL || "https://api.hoope.co";
 
@@ -321,6 +323,8 @@ export default function RevolutConsentScreen() {
   const [modalVisible, setModalVisible] = useState(false);
 
   const params = useLocalSearchParams();
+
+  const headerHeight = useHeaderHeight();
 
   useEffect(() => {
     if (params.selectedAccount) {
@@ -710,8 +714,14 @@ export default function RevolutConsentScreen() {
         style={styles.container}
       >
         <ScrollView
-          style={{ backgroundColor: Colors.background }}
-          contentContainerStyle={styles.scrollContent}
+          style={styles.scrollView}
+          contentContainerStyle={[styles.scrollContent, { paddingTop: 50 }]}
+          refreshControl={
+            <RefreshControl
+              refreshing={loading}
+              onRefresh={handleCreateOrRefreshConsent}
+            />
+          }
         >
           {renderHeader()}
           {selectedAccount ? (
@@ -746,10 +756,14 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
+  scrollView: {
+    flex: 1,
+    backgroundColor: Colors.background,
+  },
   scrollContent: {
     flexGrow: 1,
-    paddingHorizontal: 8,
-    paddingBottom: 40,
+    paddingHorizontal: 16,
+    paddingBottom: 20,
   },
   connectButton: {
     backgroundColor: Colors.primary,

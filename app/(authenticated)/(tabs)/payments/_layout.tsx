@@ -1,6 +1,6 @@
 import { Colors } from "@/constants/Colors";
 import { FontAwesome, Ionicons } from "@expo/vector-icons";
-import { Stack, Tabs } from "expo-router";
+import { Stack } from "expo-router";
 import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { Image } from "react-native";
@@ -26,10 +26,19 @@ const Layout = () => {
         name="[id]"
         options={{
           title: "",
+          headerShown: true,
+        }}
+      />
+      <Stack.Screen
+        name="addBeneficiary"
+        options={{
+          title: "",
           headerShown: false,
+          presentation: "modal",
         }}
       />
     </Stack>
   );
 };
+
 export default Layout;
