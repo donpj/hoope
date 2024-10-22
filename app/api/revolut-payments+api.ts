@@ -3,6 +3,7 @@ import axios from "axios";
 import fs from "fs";
 import path from "path";
 import { createJws } from "../../utils/jws-helper";
+//import { REVOLUT_CA_CERT } from "@/app/api/revolut-ca-cert";
 
 async function exchangeCodeForToken(code: string) {
     const tokenUrl = `${process.env.REVOLUT_HOST}/token`;
@@ -15,6 +16,7 @@ async function exchangeCodeForToken(code: string) {
 
     const cert = process.env.REVOLUT_CERT;
     const key = process.env.REVOLUT_PRIVATE_KEY;
+    //const ca = REVOLUT_CA_CERT;
 
     try {
         const response = await axios.post(tokenUrl, tokenData, {
@@ -29,7 +31,7 @@ async function exchangeCodeForToken(code: string) {
             httpsAgent: new https.Agent({
                 cert: cert,
                 key: key,
-                rejectUnauthorized: false, // Only for testing, remove in production
+                rejectUnauthorized: false,
             }),
         });
 
@@ -49,6 +51,7 @@ async function initiatePayment(accessToken: string, paymentDetails: any) {
     const paymentUrl = `${process.env.REVOLUT_URL}/domestic-payments`;
     const cert = process.env.REVOLUT_CERT;
     const key = process.env.REVOLUT_PRIVATE_KEY;
+    //const ca = REVOLUT_CA_CERT;
 
     // Generate JWS signature
     const jwsSignature = createJws(paymentDetails);
@@ -72,6 +75,7 @@ async function initiatePayment(accessToken: string, paymentDetails: any) {
             httpsAgent: new https.Agent({
                 cert: cert,
                 key: key,
+                rejectUnauthorized: false,
             }),
         });
 

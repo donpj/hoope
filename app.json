@@ -16,7 +16,7 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.gigipiscitelli.hoopeMvp",
-      "buildNumber": "9",
+      "buildNumber": "10",
       "entitlements": {
         "aps-environment": "development",
         "com.apple.developer.associated-domains": [

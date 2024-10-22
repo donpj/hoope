@@ -450,14 +450,17 @@ export default function RevolutConsentScreen() {
       const token = await getToken({ template: "supabase" });
 
       console.log("Exchanging code for token...");
-      const tokenResponse = await fetch(`${API_BASE_URL}/api/revolut-token`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ code }),
-      });
+      const tokenResponse = await fetch(
+        `${API_BASE_URL}/api/revolut-accounts`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({ code }),
+        }
+      );
 
       const tokenResponseText = await tokenResponse.text();
       console.log("Token response:", tokenResponseText);

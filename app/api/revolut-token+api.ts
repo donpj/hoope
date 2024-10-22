@@ -3,6 +3,7 @@ import axios from "axios";
 import fs from "fs";
 import path from "path";
 import { storeRevolutTokens } from "@/utils/revolut-token-manager";
+import { REVOLUT_CA_CERT } from "@/app/api/revolut-ca-cert";
 
 // Step 5: Exchange the authorization code for an access token
 async function getAccessToken(authCode: string) {
@@ -18,6 +19,7 @@ async function getAccessToken(authCode: string) {
     // Load certificates from environment variables
     const cert = process.env.REVOLUT_CERT;
     const key = process.env.REVOLUT_PRIVATE_KEY;
+    const ca = REVOLUT_CA_CERT;
 
     console.log("Cert available:", !!cert);
     console.log("Key available:", !!key);
@@ -35,7 +37,7 @@ async function getAccessToken(authCode: string) {
             httpsAgent: new https.Agent({
                 cert: cert,
                 key: key,
-                rejectUnauthorized: false, // Only for testing, remove in production
+                rejectUnauthorized: false,
             }),
         });
 

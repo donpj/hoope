@@ -9,8 +9,6 @@ import {
   StyleSheet,
   TouchableOpacity,
   TextInput,
-  Button,
-  Image,
 } from "react-native";
 import DraggableFlatList, {
   DragEndParams,
@@ -21,19 +19,16 @@ import {
   BottomSheetModal,
   BottomSheetModalProvider,
 } from "@gorhom/bottom-sheet";
-import { DefaultTheme } from "@react-navigation/native";
-import * as ImagePicker from "expo-image-picker";
-import * as FileSystem from "expo-file-system";
-import { useAuth } from "@clerk/clerk-expo";
 import ListItem from "@/components/Board/ListItem";
 import { RealtimePostgresChangesPayload } from "@supabase/supabase-js";
 
 export interface ListViewProps {
   taskList: TaskList;
   onDelete: () => void;
+  onOpenModal: () => void;
 }
 
-const ListView = ({ taskList, onDelete }: ListViewProps) => {
+const ListView = ({ taskList, onDelete, onOpenModal }: ListViewProps) => {
   const {
     getListCards,
     addListCard,
@@ -41,7 +36,6 @@ const ListView = ({ taskList, onDelete }: ListViewProps) => {
     deleteBoardList,
     updateBoardList,
     getRealtimeCardSubscription,
-    uploadFile,
   } = useSupabase();
   const [isAdding, setIsAdding] = useState(false);
   const [newTask, setNewTask] = useState("");
@@ -51,7 +45,6 @@ const ListView = ({ taskList, onDelete }: ListViewProps) => {
   const snapPoints = useMemo(() => ["40%"], []);
 
   const [listName, setListName] = useState(taskList.title);
-  const { userId } = useAuth();
 
   useEffect(() => {
     loadListTasks();
@@ -76,25 +69,16 @@ const ListView = ({ taskList, onDelete }: ListViewProps) => {
     if (!record) return;
 
     if (event === "INSERT") {
-      setTasks((prev) => {
-        return [...prev, record];
-      });
+      setTasks((prev) => [...prev, record]);
     } else if (event === "UPDATE") {
-      setTasks((prev) => {
-        return prev
-          .map((task) => {
-            if (task.id === record.id) {
-              return record;
-            }
-            return task;
-          })
+      setTasks((prev) =>
+        prev
+          .map((task) => (task.id === record.id ? record : task))
           .filter((task) => !task.done)
-          .sort((a, b) => a.position - b.position);
-      });
+          .sort((a, b) => a.position - b.position)
+      );
     } else if (event === "DELETE") {
-      setTasks((prev) => {
-        return prev.filter((task) => task.id !== record.id);
-      });
+      setTasks((prev) => prev.filter((task) => task.id !== record.id));
     } else {
       console.log("Unhandled event", event);
     }
@@ -108,11 +92,11 @@ const ListView = ({ taskList, onDelete }: ListViewProps) => {
   const onDeleteList = async () => {
     await deleteBoardList!(taskList.id);
     bottomSheetModalRef.current?.close();
-    onDelete;
+    onDelete();
   };
 
   const onUpdateTaskList = async () => {
-    const updated = await updateBoardList!(taskList, listName);
+    await updateBoardList!(taskList, listName);
   };
 
   const onAddCard = async () => {
@@ -126,52 +110,18 @@ const ListView = ({ taskList, onDelete }: ListViewProps) => {
       setIsAdding(false);
       setNewTask("");
     }
-    // Unnecessary when using realtime updates
-    // setTasks([...tasks, data]);
   };
 
   const onTaskDropped = async (params: DragEndParams<Task>) => {
-    const newData = params.data.map((item: any, index: number) => {
-      return { ...item, position: index };
-    });
+    const newData = params.data.map((item: any, index: number) => ({
+      ...item,
+      position: index,
+    }));
 
     setTasks(newData);
     newData.forEach(async (item: any) => {
       await updateCard!(item);
     });
-  };
-
-  const onSelectImage = async () => {
-    // await ImagePicker.requestCameraPermissionsAsync();
-    let result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.All,
-      allowsEditing: true,
-      aspect: [4, 3],
-      quality: 1,
-    });
-
-    if (!result.canceled) {
-      const img = result.assets[0];
-      const base64 = await FileSystem.readAsStringAsync(img.uri, {
-        encoding: "base64",
-      });
-      const fileName = `${new Date().getTime()}-${userId}.${
-        img.type === "image" ? "png" : "mp4"
-      }`;
-      const filePath = `${taskList.board_id}/${fileName}`;
-      const contentType = img.type === "image" ? "image/png" : "video/mp4";
-      const storagePath = await uploadFile!(filePath, base64, contentType);
-
-      if (storagePath) {
-        await addListCard!(
-          taskList.id,
-          taskList.board_id,
-          fileName,
-          tasks.length,
-          storagePath
-        );
-      }
-    }
   };
 
   const renderBackdrop = useCallback(
@@ -189,27 +139,19 @@ const ListView = ({ taskList, onDelete }: ListViewProps) => {
 
   return (
     <BottomSheetModalProvider>
-      <View
-        style={{
-          paddingTop: 20,
-          paddingHorizontal: 10,
-          maxHeight: "88%",
-        }}
-      >
-        <View style={[styles.card]}>
-          <View style={styles.header}>
-            <Text style={styles.listTitle}>{listName}</Text>
-            <TouchableOpacity
-              onPress={() => bottomSheetModalRef.current?.present()}
-            >
-              <MaterialCommunityIcons
-                name="dots-horizontal"
-                size={22}
-                color={Colors.grey}
-              />
-            </TouchableOpacity>
-          </View>
+      <View style={styles.listContainer}>
+        <View style={styles.listNameContainer}>
+          <Text style={styles.listTitle}>{taskList.title}</Text>
+          <TouchableOpacity onPress={onOpenModal}>
+            <MaterialCommunityIcons
+              name="dots-horizontal"
+              size={22}
+              color={Colors.gray}
+            />
+          </TouchableOpacity>
+        </View>
 
+        <View style={styles.cardsContainer}>
           <DraggableFlatList
             data={tasks}
             renderItem={ListItem}
@@ -222,159 +164,123 @@ const ListView = ({ taskList, onDelete }: ListViewProps) => {
               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
             }
             activationDistance={10}
-            containerStyle={{
-              paddingBottom: 4,
-              maxHeight: "80%",
-            }}
-            contentContainerStyle={{ gap: 4 }}
+            containerStyle={styles.flatListContainer}
+            contentContainerStyle={styles.flatListContentContainer}
           />
           {isAdding && (
-            <TextInput
-              autoFocus
-              style={styles.input}
-              value={newTask}
-              onChangeText={setNewTask}
-            />
+            <View style={styles.inputContainer}>
+              <TextInput
+                autoFocus
+                style={styles.input}
+                value={newTask}
+                onChangeText={setNewTask}
+                placeholder="Enter new task"
+                placeholderTextColor={Colors.gray}
+              />
+            </View>
           )}
 
-          <View
-            style={{
-              flexDirection: "row",
-              justifyContent: "space-between",
-              paddingHorizontal: 8,
-              marginVertical: 8,
-            }}
-          >
-            {!isAdding && (
-              <>
-                <TouchableOpacity
-                  style={{ flexDirection: "row", alignItems: "center" }}
-                  onPress={() => setIsAdding(true)}
-                >
-                  <Ionicons name="add" size={14} />
-                  <Text style={{ fontSize: 12 }}>Add card</Text>
-                </TouchableOpacity>
-                <TouchableOpacity onPress={onSelectImage}>
-                  <Ionicons name="image-outline" size={18} />
-                </TouchableOpacity>
-              </>
-            )}
-            {isAdding && (
+          <View style={styles.addCardContainer}>
+            {!isAdding ? (
+              <TouchableOpacity
+                style={styles.addCardButton}
+                onPress={() => setIsAdding(true)}
+              >
+                <Ionicons name="add" size={14} color={Colors.primary} />
+                <Text style={styles.addCardText}>Add card</Text>
+              </TouchableOpacity>
+            ) : (
               <>
                 <TouchableOpacity onPress={() => setIsAdding(false)}>
-                  <Text style={{ color: Colors.primary, fontSize: 14 }}>
-                    Cancel
-                  </Text>
+                  <Text style={styles.cancelButton}>Cancel</Text>
                 </TouchableOpacity>
                 <TouchableOpacity onPress={onAddCard}>
-                  <Text
-                    style={{
-                      color: Colors.primary,
-                      fontSize: 14,
-                      fontWeight: "bold",
-                    }}
-                  >
-                    Add
-                  </Text>
+                  <Text style={styles.addButton}>Add</Text>
                 </TouchableOpacity>
               </>
             )}
           </View>
         </View>
       </View>
-      <BottomSheetModal
-        ref={bottomSheetModalRef}
-        index={0}
-        snapPoints={snapPoints}
-        handleStyle={{
-          backgroundColor: DefaultTheme.colors.background,
-          borderRadius: 12,
-        }}
-        backdropComponent={renderBackdrop}
-        enableOverDrag={false}
-        enablePanDownToClose
-      >
-        <View style={styles.container}>
-          <View
-            style={{
-              flexDirection: "row",
-              alignItems: "center",
-              paddingHorizontal: 10,
-            }}
-          >
-            <Button
-              title="Cancel"
-              onPress={() => bottomSheetModalRef.current?.close()}
-            />
-          </View>
-          <View
-            style={{
-              backgroundColor: "#fff",
-              paddingHorizontal: 16,
-              paddingVertical: 8,
-            }}
-          >
-            <Text style={{ color: Colors.grey, fontSize: 12, marginBottom: 5 }}>
-              List name
-            </Text>
-            <TextInput
-              style={{ fontSize: 16, color: Colors.fontDark }}
-              returnKeyType="done"
-              enterKeyHint="done"
-              onEndEditing={onUpdateTaskList}
-              onChangeText={(e) => setListName(e)}
-              value={listName}
-            />
-          </View>
-
-          <TouchableOpacity onPress={onDeleteList} style={styles.deleteBtn}>
-            <Text>Delete List</Text>
-          </TouchableOpacity>
-        </View>
-      </BottomSheetModal>
     </BottomSheetModalProvider>
   );
 };
 
 const styles = StyleSheet.create({
-  card: {
-    backgroundColor: "#F3EFFC",
-    borderRadius: 4,
-    padding: 6,
+  listContainer: {
+    //backgroundColor: "transparent",
+    backgroundColor: Colors.background,
+    borderRadius: 12,
     marginBottom: 16,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
   },
-  header: {
+  listNameContainer: {
     flexDirection: "row",
     justifyContent: "space-between",
-    padding: 8,
     alignItems: "center",
-  },
-  input: {
-    padding: 8,
-    marginBottom: 12,
-    backgroundColor: "#fff",
-    elevation: 1,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 1.2,
-    borderRadius: 4,
+    marginHorizontal: 15,
+    borderBottomWidth: 1,
+    //backgroundColor: Colors.white,
+    paddingTop: 12,
+    paddingBottom: 12,
+
+    //borderRadius: 12,
+    borderBottomColor: Colors.lightGray,
   },
   listTitle: {
-    paddingVertical: 8,
-    fontWeight: "500",
+    fontWeight: "600",
+    fontSize: 18,
+    color: Colors.light.text,
   },
-  deleteBtn: {
-    backgroundColor: "#fff",
-    padding: 8,
-    marginHorizontal: 16,
-    borderRadius: 6,
+  cardsContainer: {
+    padding: 12,
+  },
+  flatListContainer: {
+    maxHeight: "80%",
+  },
+  flatListContentContainer: {
+    gap: 8,
+    paddingBottom: 1, // Add some padding at the bottom of the list
+  },
+  inputContainer: {
+    marginTop: 6, // Add space above the input
+    //marginBottom: 8, // Add space below the input
+  },
+  input: {
+    padding: 12,
+    backgroundColor: Colors.white,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: Colors.lightGray,
+    color: Colors.light.text,
+  },
+  addCardContainer: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginTop: 12,
+  },
+  addCardButton: {
+    flexDirection: "row",
     alignItems: "center",
   },
-  container: {
-    backgroundColor: DefaultTheme.colors.background,
-    flex: 1,
-    gap: 16,
+  addCardText: {
+    //color: Colors.primary,
+    fontSize: 14,
+    marginLeft: 4,
+  },
+  cancelButton: {
+    color: Colors.gray,
+    fontSize: 14,
+  },
+  addButton: {
+    color: Colors.primary,
+    fontSize: 14,
+    fontWeight: "600",
   },
 });
 

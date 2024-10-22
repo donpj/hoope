@@ -1,8 +1,9 @@
 import https from "https";
+import fs from "fs";
 import axios from "axios";
 import jwt from "jsonwebtoken";
 import crypto from "crypto";
-
+import { REVOLUT_CA_CERT } from "@/app/api/revolut-ca-cert";
 // Next.js API route handler for Revolut consent creation
 export async function POST(request: Request) {
     try {
@@ -21,6 +22,9 @@ export async function POST(request: Request) {
     try {
         const cert = process.env.REVOLUT_CERT;
         const key = process.env.REVOLUT_PRIVATE_KEY;
+        const ca = REVOLUT_CA_CERT;
+
+        //const ca = process.env.REVOLUT_CA_CERT;
 
         if (!cert || !key) {
             throw new Error(
@@ -62,7 +66,7 @@ export async function POST(request: Request) {
             httpsAgent: new https.Agent({
                 cert: cert,
                 key: key,
-                rejectUnauthorized: false, // Only for testing, remove in production
+                rejectUnauthorized: false,
             }),
         });
 
@@ -125,7 +129,7 @@ export async function POST(request: Request) {
             httpsAgent: new https.Agent({
                 cert: cert,
                 key: key,
-                rejectUnauthorized: false, // Only for testing, remove in production
+                rejectUnauthorized: false,
             }),
         });
 

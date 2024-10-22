@@ -12,6 +12,7 @@ import {
   StyleSheet,
   RefreshControl,
 } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 
 const Page = () => {
   const { getBoards } = useSupabase();
@@ -34,15 +35,20 @@ const Page = () => {
       href={`/(authenticated)/board/${item.id}?bg=${encodeURIComponent(
         item.background
       )}`}
-      style={styles.listItem}
+      style={styles.card}
       key={`${item.id}`}
       asChild
     >
       <TouchableOpacity>
-        <View
-          style={[styles.colorBlock, { backgroundColor: item.background }]}
-        />
-        <Text style={{ fontSize: 16 }}>{item.title}</Text>
+        <View style={styles.cardContent}>
+          <View style={styles.cardHeader}>
+            <View
+              style={[styles.colorBlock, { backgroundColor: item.background }]}
+            />
+            <Text style={styles.cardTitle}>{item.title}</Text>
+          </View>
+          <Ionicons name="chevron-forward" size={24} color={Colors.grey} />
+        </View>
       </TouchableOpacity>
     </Link>
   );
@@ -55,19 +61,11 @@ const Page = () => {
         }}
       />
       <FlatList
-        contentContainerStyle={boards.length > 0 && styles.list}
+        contentContainerStyle={styles.list}
         data={boards}
         keyExtractor={(item) => `${item.id}`}
         renderItem={ListItem}
-        ItemSeparatorComponent={() => (
-          <View
-            style={{
-              height: StyleSheet.hairlineWidth,
-              backgroundColor: Colors.grey,
-              marginStart: 50,
-            }}
-          />
-        )}
+        ItemSeparatorComponent={() => <View style={styles.separator} />}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={loadBoards} />
         }
@@ -78,26 +76,44 @@ const Page = () => {
 
 const styles = StyleSheet.create({
   container: {
-    marginTop: 16,
     flex: 1,
     backgroundColor: "#F1F1F1",
   },
   list: {
-    borderColor: Colors.grey,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderBottomWidth: StyleSheet.hairlineWidth,
+    padding: 10,
   },
-  listItem: {
+  card: {
+    backgroundColor: "#fff",
+    borderRadius: 8,
+    marginBottom: 1,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  cardContent: {
     flexDirection: "row",
     alignItems: "center",
-    padding: 10,
-    backgroundColor: "#fff",
-    gap: 10,
+    justifyContent: "space-between",
+    padding: 16,
+  },
+  cardHeader: {
+    flexDirection: "row",
+    alignItems: "center",
   },
   colorBlock: {
-    width: 30,
-    height: 30,
-    borderRadius: 4,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    marginRight: 12,
+  },
+  cardTitle: {
+    fontSize: 16,
+    fontWeight: "500",
+  },
+  separator: {
+    height: 8,
   },
 });
 

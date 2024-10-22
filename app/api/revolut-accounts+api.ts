@@ -5,39 +5,8 @@ import {
     refreshRevolutToken,
 } from "@/utils/revolut-token-manager";
 import { NextResponse } from "next/server";
-
-// Step 6: Get the list of accounts
-async function getAccounts(accessToken: string) {
-    const accountsUrl = `${process.env.REVOLUT_URL}/accounts`;
-    const cert = process.env.REVOLUT_CERT;
-    const key = process.env.REVOLUT_PRIVATE_KEY;
-
-    console.log("Using access token for accounts request:", accessToken);
-
-    try {
-        const accountsResponse = await axios.get(accountsUrl, {
-            headers: {
-                "Authorization": `Bearer ${accessToken}`,
-                "x-fapi-financial-id": process.env.REVOLUT_FINANCIAL_ID,
-            },
-            httpsAgent: new https.Agent({
-                cert: cert,
-                key: key,
-            }),
-        });
-
-        console.log("Accounts response:", accountsResponse.data);
-        return accountsResponse.data;
-    } catch (error) {
-        console.error(
-            "Error getting accounts:",
-            error.response
-                ? JSON.stringify(error.response.data)
-                : error.message,
-        );
-        throw error;
-    }
-}
+import { storeRevolutTokens } from "@/utils/revolut-token-manager";
+import { REVOLUT_CA_CERT } from "@/app/api/revolut-ca-cert";
 
 function sanitizeError(error: any) {
     return {
@@ -62,11 +31,117 @@ function sanitizeError(error: any) {
     };
 }
 
+async function getAccessToken(authCode: string) {
+    const tokenUrl = `${process.env.REVOLUT_HOST}/token`;
+    console.log("Token URL:", tokenUrl);
+
+    const tokenData = new URLSearchParams({
+        grant_type: "authorization_code",
+        code: authCode,
+    });
+    console.log("Token request data:", tokenData.toString());
+
+    // Load certificates from environment variables
+    const cert = process.env.REVOLUT_CERT;
+    const key = process.env.REVOLUT_PRIVATE_KEY;
+    const ca = REVOLUT_CA_CERT;
+
+    console.log("Cert available:", !!cert);
+    console.log("Key available:", !!key);
+    console.log("CA available:", !!ca);
+    try {
+        const tokenResponse = await axios.post(tokenUrl, tokenData, {
+            headers: {
+                "Content-Type": "application/x-www-form-urlencoded",
+                "Authorization": `Basic ${
+                    Buffer.from(
+                        `${process.env.REVOLUT_CLIENT_ID}:${process.env.REVOLUT_CLIENT_SECRET}`,
+                    ).toString("base64")
+                }`,
+            },
+            httpsAgent: new https.Agent({
+                cert: cert,
+                key: key,
+                rejectUnauthorized: false,
+            }),
+        });
+
+        console.log("Token response status:", tokenResponse.status);
+        console.log(
+            "Token response data:",
+            JSON.stringify(tokenResponse.data, null, 2),
+        );
+
+        return tokenResponse.data;
+    } catch (error) {
+        console.error("Error exchanging code for token:");
+        if (error.response) {
+            console.error("Response status:", error.response.status);
+            console.error(
+                "Response data:",
+                JSON.stringify(error.response.data, null, 2),
+            );
+            console.error(
+                "Response headers:",
+                JSON.stringify(error.response.headers, null, 2),
+            );
+        } else if (error.request) {
+            console.error("No response received:", error.request);
+        } else {
+            console.error("Error setting up request:", error.message);
+        }
+        console.error("Full error object:", JSON.stringify(error, null, 2));
+        throw new Error(
+            `Failed to exchange code for token: ${
+                error.response
+                    ? JSON.stringify(error.response.data)
+                    : error.message
+            }`,
+        );
+    }
+}
+
+// Step 6: Get the list of accounts
+async function getAccounts(accessToken: string) {
+    const accountsUrl = `${process.env.REVOLUT_URL}/accounts`;
+    const cert = process.env.REVOLUT_CERT;
+    const key = process.env.REVOLUT_PRIVATE_KEY;
+    const ca = REVOLUT_CA_CERT;
+
+    console.log("Using access token for accounts request:", accessToken);
+
+    try {
+        const accountsResponse = await axios.get(accountsUrl, {
+            headers: {
+                "Authorization": `Bearer ${accessToken}`,
+                "x-fapi-financial-id": process.env.REVOLUT_FINANCIAL_ID,
+            },
+            httpsAgent: new https.Agent({
+                cert: cert,
+                key: key,
+                rejectUnauthorized: false,
+            }),
+        });
+
+        console.log("Accounts response:", accountsResponse.data);
+        return accountsResponse.data;
+    } catch (error) {
+        console.error(
+            "Error getting accounts:",
+            error.response
+                ? JSON.stringify(error.response.data)
+                : error.message,
+        );
+        throw error;
+    }
+}
+
 async function getTransactions(accessToken: string, accountId: string) {
     const transactionsUrl =
         `${process.env.REVOLUT_URL}/accounts/${accountId}/transactions`;
     const cert = process.env.REVOLUT_CERT;
     const key = process.env.REVOLUT_PRIVATE_KEY;
+    const ca = REVOLUT_CA_CERT;
 
     console.log("Using access token for transactions request:", accessToken);
     console.log("Transactions URL:", transactionsUrl);
@@ -80,6 +155,7 @@ async function getTransactions(accessToken: string, accountId: string) {
             httpsAgent: new https.Agent({
                 cert: cert,
                 key: key,
+                rejectUnauthorized: false,
             }),
         });
 
@@ -110,6 +186,7 @@ async function getAccountBalance(accessToken: string, accountId: string) {
         `${process.env.REVOLUT_URL}/accounts/${accountId}/balances`;
     const cert = process.env.REVOLUT_CERT;
     const key = process.env.REVOLUT_PRIVATE_KEY;
+    const ca = REVOLUT_CA_CERT;
 
     console.log("Fetching balance from URL:", balanceUrl);
 
@@ -122,6 +199,7 @@ async function getAccountBalance(accessToken: string, accountId: string) {
             httpsAgent: new https.Agent({
                 cert: cert,
                 key: key,
+                rejectUnauthorized: false,
             }),
         });
 
@@ -142,6 +220,7 @@ async function getBeneficiaries(accessToken: string, accountId: string) {
         `${process.env.REVOLUT_URL}/accounts/${accountId}/beneficiaries`;
     const cert = process.env.REVOLUT_CERT;
     const key = process.env.REVOLUT_PRIVATE_KEY;
+    const ca = REVOLUT_CA_CERT;
 
     console.log("[API] Fetching beneficiaries from URL:", beneficiariesUrl);
 
@@ -155,6 +234,7 @@ async function getBeneficiaries(accessToken: string, accountId: string) {
             httpsAgent: new https.Agent({
                 cert: cert,
                 key: key,
+                rejectUnauthorized: false,
             }),
         });
 
@@ -168,6 +248,37 @@ async function getBeneficiaries(accessToken: string, accountId: string) {
             "[API] Error getting beneficiaries:",
             error.response ? error.response.data : error.message,
         );
+        throw error;
+    }
+}
+
+async function deleteAccountAccessConsent(
+    accessToken: string,
+    consentId: string,
+) {
+    const config = {
+        method: "delete",
+        maxBodyLength: Infinity,
+        url: `${process.env.REVOLUT_URL}/account-access-consents/${consentId}`,
+        headers: {
+            "Authorization": `Bearer ${accessToken}`,
+            "x-fapi-financial-id": process.env.REVOLUT_FINANCIAL_ID,
+        },
+        httpsAgent: new https.Agent({
+            cert: process.env.REVOLUT_CERT,
+            key: process.env.REVOLUT_PRIVATE_KEY,
+        }),
+    };
+
+    try {
+        const response = await axios(config);
+        console.log(
+            "[API] Delete consent response:",
+            JSON.stringify(response.data),
+        );
+        return response.data;
+    } catch (error) {
+        console.error("[API] Error deleting consent:", error);
         throw error;
     }
 }
@@ -266,4 +377,85 @@ export async function GET(request: Request) {
             details: error.message,
         }, { status: 500 });
     }
+}
+
+export async function POST(request: Request) {
+    const { code } = await request.json();
+    try {
+        const tokenData = await getAccessToken(code);
+        console.log("Token data received:", JSON.stringify(tokenData, null, 2));
+        await storeRevolutTokens(
+            tokenData.access_token,
+            tokenData.refresh_token,
+            tokenData.expires_in,
+        );
+        return new Response(
+            JSON.stringify({ message: "Access token stored successfully" }),
+            {
+                status: 200,
+                headers: { "Content-Type": "application/json" },
+            },
+        );
+    } catch (error) {
+        console.error("Error exchanging code for token:", error);
+        return new Response(JSON.stringify({ error: error.message }), {
+            status: 500,
+            headers: { "Content-Type": "application/json" },
+        });
+    }
+}
+
+export async function DELETE(request: Request) {
+    console.log("[API] Received DELETE request:", request.url);
+    try {
+        const url = new URL(request.url);
+        const consentId = url.searchParams.get("consentId");
+
+        if (!consentId) {
+            console.log("[API] DELETE request missing consentId");
+            return NextResponse.json({ error: "ConsentId is required" }, {
+                status: 400,
+            });
+        }
+
+        console.log(
+            `[API] Attempting to delete account access consent with ID: ${consentId}`,
+        );
+        const accessToken = await getRevolutAccessToken();
+
+        if (!accessToken) {
+            console.log(
+                "[API] No valid access token available for DELETE request",
+            );
+            return NextResponse.json({
+                error: "No valid access token available",
+            }, { status: 401 });
+        }
+
+        await deleteAccountAccessConsent(accessToken, consentId);
+
+        console.log(
+            `[API] Successfully deleted account access consent with ID: ${consentId}`,
+        );
+        return NextResponse.json({
+            message: "Account access consent deleted successfully",
+        });
+    } catch (error) {
+        console.error("[API] Error in DELETE request:", error);
+        return NextResponse.json({
+            error: "An error occurred while deleting account access consent",
+            details: error.response ? error.response.data : error.message,
+        }, { status: error.response?.status || 500 });
+    }
+}
+
+export async function OPTIONS() {
+    return new Response(null, {
+        status: 204,
+        headers: {
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+            "Access-Control-Allow-Headers": "Content-Type, Authorization",
+        },
+    });
 }
