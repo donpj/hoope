@@ -1,4 +1,4 @@
-import UserListItem from "@/components/UserListItem";
+import UserListItem from "@/components/User/UserListItem";
 import { Colors } from "@/constants/Colors";
 import { useSupabase } from "@/context/SupabaseContext";
 import { Board, User } from "@/types/enums";
@@ -11,119 +11,230 @@ import {
   TouchableOpacity,
   StyleSheet,
   FlatList,
+  ScrollView,
+  TextInput,
 } from "react-native";
-import { TextInput } from "react-native-gesture-handler";
+import { Swipeable } from "react-native-gesture-handler";
+import Animated, { FadeInRight } from "react-native-reanimated";
 
 const Page = () => {
   const { id } = useLocalSearchParams<{ id?: string }>();
-  const { getBoardInfo, updateBoard, deleteBoard, getBoardMember } =
-    useSupabase();
+  const {
+    getBoardInfo,
+    updateBoard,
+    deleteBoard,
+    getBoardMember,
+    updateBoardMembers,
+  } = useSupabase();
   const router = useRouter();
-  const [board, setBoard] = useState<Board>();
-  const [member, setMember] = useState<User[]>();
-
-  useEffect(() => {
-    if (!id) return;
-    loadInfo();
-  }, [id]);
+  const [board, setBoard] = useState<Board | null>(null);
+  const [members, setMembers] = useState<User[]>([]);
 
   const loadInfo = async () => {
     if (!id) return;
-
-    const data = await getBoardInfo!(id);
-    setBoard(data);
-
-    const member = await getBoardMember!(id);
-    console.log(member);
-    setMember(member);
+    const [boardData, memberData] = await Promise.all([
+      getBoardInfo!(id),
+      getBoardMember!(id),
+    ]);
+    setBoard(boardData);
+    // Remove duplicate members based on their id
+    const uniqueMembers = memberData.filter(
+      (member, index, self) =>
+        index === self.findIndex((m) => m.id === member.id)
+    );
+    setMembers(uniqueMembers);
   };
 
-  const onDelete = async () => {
-    await deleteBoard!(`${id}`);
-    router.dismissAll();
+  useEffect(() => {
+    loadInfo();
+  }, [id]);
+
+  const handleBoardUpdate = async (updatedBoard: Partial<Board>) => {
+    if (!board || !id) return;
+    const newBoard = { ...board, ...updatedBoard };
+    const updated = await updateBoard!(newBoard);
+    setBoard(updated);
   };
 
+  const handleDelete = async () => {
+    if (!id) return;
+    await deleteBoard!(id);
+    router.back();
+  };
+
+  const deleteMember = async (memberId: string) => {
+    if (!id) return;
+    const updatedMembers = members.filter((member) => member.id !== memberId);
+    setMembers(updatedMembers);
+
+    try {
+      await updateBoardMembers!(
+        id,
+        updatedMembers.map((member) => member.id)
+      );
+      // Optionally, you can show a success message here
+    } catch (error) {
+      console.error("Failed to update board members:", error);
+      // Optionally, you can show an error message to the user
+      // and revert the local state change
+      setMembers(members);
+    }
+  };
+
+  const renderRightActions = (
+    progress: any,
+    dragX: any,
+    onDelete: () => void
+  ) => {
+    return (
+      <TouchableOpacity style={styles.deleteAction} onPress={onDelete}>
+        <Animated.Text
+          entering={FadeInRight.duration(300)}
+          style={styles.deleteActionText}
+        >
+          Delete
+        </Animated.Text>
+      </TouchableOpacity>
+    );
+  };
+
+  const renderMemberItem = ({ item }: { item: User }) => (
+    <Swipeable
+      renderRightActions={(progress, dragX) =>
+        renderRightActions(progress, dragX, () => deleteMember(item.id))
+      }
+      rightThreshold={40}
+    >
+      <UserListItem user={item} onPress={() => {}} selected={false} />
+    </Swipeable>
+  );
   const onUpdateBoard = async () => {
     const updated = await updateBoard!(board!);
     setBoard(updated);
   };
+  if (!board) return null;
 
   return (
-    <View>
-      <View style={styles.container}>
-        <View>
-          <Text style={{ color: Colors.grey, fontSize: 12, marginBottom: 5 }}>
-            Project name
-          </Text>
-          <TextInput
-            value={board?.title}
-            onChangeText={(e) => setBoard({ ...board!, title: e })}
-            style={{ fontSize: 16, color: Colors.fontDark }}
-            returnKeyType="done"
-            enterKeyHint="done"
-            onEndEditing={onUpdateBoard}
-          />
-        </View>
+    <ScrollView style={styles.container}>
+      <View style={styles.inputContainer}>
+        <Text style={styles.label}>Project Name</Text>
+        <TextInput
+          style={styles.input}
+          value={board?.title}
+          onChangeText={(e) => setBoard({ ...board!, title: e })}
+          returnKeyType="done"
+          enterKeyHint="done"
+          onEndEditing={onUpdateBoard}
+        />
       </View>
 
-      <View style={styles.container}>
-        <View style={{ flexDirection: "row", gap: 14 }}>
-          <Ionicons name="person-outline" size={18} color={Colors.fontDark} />
-          <Text
-            style={{ fontWeight: "bold", color: Colors.fontDark, fontSize: 16 }}
-          >
-            Members
-          </Text>
-        </View>
-
+      <View style={styles.membersSection}>
+        <Text style={styles.sectionTitle}>Members</Text>
         <FlatList
-          data={member}
-          keyExtractor={(item) => `${item.id}`}
-          renderItem={(item) => (
-            <UserListItem onPress={() => {}} element={item} />
-          )}
-          contentContainerStyle={{ gap: 8 }}
-          style={{ marginVertical: 12 }}
+          data={members}
+          renderItem={renderMemberItem}
+          keyExtractor={(item) => item.id}
+          scrollEnabled={false}
+          contentContainerStyle={styles.memberList}
         />
-
-        <Link href={`/(authenticated)/board/invite?id=${id}`} asChild>
-          <TouchableOpacity style={styles.fullBtn}>
-            <Text style={{ fontSize: 16, color: Colors.fontLight }}>
-              Invite...
-            </Text>
+        <Link href={`/board/invite?id=${id}`} asChild>
+          <TouchableOpacity style={styles.inviteButton}>
+            <Ionicons name="add-circle-outline" size={24} color={Colors.grey} />
+            <Text style={styles.inviteButtonText}>Invite Members</Text>
           </TouchableOpacity>
         </Link>
       </View>
 
-      <TouchableOpacity onPress={onDelete} style={styles.deleteBtn}>
-        <Text>Delete Project</Text>
+      <TouchableOpacity onPress={onUpdateBoard} style={styles.saveBtn}>
+        <Text style={styles.saveBtnText}>Save Changes</Text>
       </TouchableOpacity>
-    </View>
+
+      <TouchableOpacity onPress={handleDelete} style={styles.deleteBtn}>
+        <Text style={styles.deleteBtnText}>Delete Project</Text>
+      </TouchableOpacity>
+    </ScrollView>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: "#fff",
+    flex: 1,
+    padding: 16,
+    backgroundColor: Colors.background,
+  },
+  inputContainer: {
+    marginBottom: 16,
+  },
+  label: {
+    fontSize: 16,
+    fontWeight: "bold",
+    marginBottom: 8,
+  },
+  input: {
+    borderWidth: 1,
+    borderColor: Colors.lightGray,
+    borderRadius: 4,
     padding: 8,
-    paddingHorizontal: 16,
-    marginVertical: 16,
+  },
+  membersSection: {
+    marginBottom: 16,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: "bold",
+    marginBottom: 16,
+  },
+  memberList: {
+    gap: 6,
+    margin: 4,
+  },
+  inviteButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginTop: 16,
+  },
+  inviteButtonText: {
+    marginLeft: 8,
+    color: Colors.grey,
+    fontSize: 16,
+  },
+  saveBtn: {
+    backgroundColor: Colors.primary,
+    padding: 12,
+    borderRadius: 6,
+    alignItems: "center",
+    marginBottom: 16,
+  },
+  saveBtnText: {
+    color: "#fff",
+    fontSize: 16,
+    fontWeight: "bold",
   },
   deleteBtn: {
     backgroundColor: "#fff",
-    padding: 8,
-    marginHorizontal: 16,
+    padding: 12,
     borderRadius: 6,
     alignItems: "center",
+    borderWidth: 1,
+    borderColor: "red",
   },
-  fullBtn: {
-    backgroundColor: Colors.primary,
-    padding: 8,
-    marginLeft: 32,
-    marginRight: 16,
-    marginTop: 8,
-    borderRadius: 6,
-    alignItems: "center",
+  deleteBtnText: {
+    color: "red",
+    fontSize: 16,
+    fontWeight: "bold",
+  },
+  deleteAction: {
+    backgroundColor: "red",
+    justifyContent: "center",
+    alignItems: "flex-end",
+    width: 100,
+    height: "100%",
+  },
+  deleteActionText: {
+    color: "white",
+    fontWeight: "600",
+    padding: 20,
   },
 });
+
 export default Page;

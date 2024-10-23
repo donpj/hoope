@@ -9,11 +9,14 @@ import { BlurView } from "expo-blur";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import BoardArea from "@/components/Board/BoardArea";
 import { useHeaderHeight } from "@react-navigation/elements";
+import { RealtimeChannel } from "@supabase/supabase-js";
 
 const Page = () => {
   const { id, bg } = useLocalSearchParams<{ id: string; bg?: string }>();
-  const { getBoardInfo } = useSupabase();
+  const { getBoardInfo, getBoardLists, subscribeToCardChanges } = useSupabase();
   const [board, setBoard] = useState<Board>();
+  const [lists, setLists] = useState<any[]>([]);
+  const [channel, setChannel] = useState<RealtimeChannel | null>(null);
   const { top } = useSafeAreaInsets();
   const router = useRouter();
   const headerHeight = useHeaderHeight();
@@ -21,6 +24,15 @@ const Page = () => {
   useEffect(() => {
     if (!id) return;
     loadBoardInfo();
+    loadLists();
+    const newChannel = subscribeToCardChanges!(id, handleRealtimeCardChange);
+    setChannel(newChannel);
+
+    return () => {
+      if (channel) {
+        channel.unsubscribe();
+      }
+    };
   }, [id]);
 
   const loadBoardInfo = async () => {
@@ -28,6 +40,57 @@ const Page = () => {
 
     const data = await getBoardInfo!(id);
     setBoard(data);
+  };
+
+  const loadLists = async () => {
+    if (!id) return;
+    const data = await getBoardLists!(id);
+    setLists(data);
+  };
+
+  const handleRealtimeCardChange = (payload: any) => {
+    console.log("Realtime card change:", payload);
+    if (payload.eventType === "INSERT") {
+      // A new card was added
+      const newCard = payload.new;
+      setLists((currentLists) =>
+        currentLists.map((list) =>
+          list.id === newCard.list_id
+            ? { ...list, cards: [...(list.cards || []), newCard] }
+            : list
+        )
+      );
+    } else if (payload.eventType === "DELETE") {
+      // A card was deleted
+      const deletedCard = payload.old;
+      setLists((currentLists) =>
+        currentLists.map((list) =>
+          list.id === deletedCard.list_id
+            ? {
+                ...list,
+                cards: (list.cards || []).filter(
+                  (card) => card.id !== deletedCard.id
+                ),
+              }
+            : list
+        )
+      );
+    } else if (payload.eventType === "UPDATE") {
+      // A card was updated
+      const updatedCard = payload.new;
+      setLists((currentLists) =>
+        currentLists.map((list) =>
+          list.id === updatedCard.list_id
+            ? {
+                ...list,
+                cards: (list.cards || []).map((card) =>
+                  card.id === updatedCard.id ? updatedCard : card
+                ),
+              }
+            : list
+        )
+      );
+    }
   };
 
   const CustomHeader = () => (

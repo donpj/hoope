@@ -118,6 +118,7 @@ const BoardArea = ({ board }: BoardAreaProps) => {
               {item.id && (
                 <ListView
                   key={index}
+                  maxHeight={height * 0.6}
                   taskList={item}
                   onDelete={() => onListDeleted(item.id)}
                   onOpenModal={() => handleOpenModal(item)}

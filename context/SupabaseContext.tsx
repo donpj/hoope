@@ -1,9 +1,12 @@
-import { createContext, useContext, useEffect } from "react";
-import { client } from "@/utils/supabaseClient";
+import { createContext, useContext, useEffect, useCallback } from "react";
 import { useAuth } from "@clerk/clerk-expo";
 import { Board, Task, TaskList } from "@/types/enums";
 import { decode } from "base64-arraybuffer";
-import { RealtimePostgresChangesPayload } from "@supabase/supabase-js";
+import {
+  RealtimePostgresChangesPayload,
+  RealtimeChannel,
+} from "@supabase/supabase-js";
+import { client as supabase } from "@/utils/supabaseClient";
 
 export const BOARDS_TABLE = "boards";
 export const USER_BOARDS_TABLE = "user_boards";
@@ -36,7 +39,7 @@ type ProviderProps = {
     image_url?: string | null
   ) => Promise<any>;
   updateCard: (task: Task) => Promise<any>;
-  assignCard: (cardId: string, userId: string) => Promise<any>;
+  assignCard: (cardId: string | number, userIds: string[]) => Promise<any>;
   deleteCard: (id: string) => Promise<any>;
   getCardInfo: (id: string) => Promise<any>;
   findUsers: (search: string) => Promise<any>;
@@ -53,6 +56,15 @@ type ProviderProps = {
   ) => Promise<string | undefined>;
   getFileFromPath: (path: string) => Promise<string | undefined>;
   setUserPushToken: (token: string) => Promise<any>;
+  updateBoardMembers: (
+    boardId: string,
+    memberIdToRemove: string
+  ) => Promise<any>;
+  leaveBoard: (boardId: string) => Promise<any>;
+  subscribeToCardChanges: (
+    boardId: string,
+    callback: (payload: any) => void
+  ) => RealtimeChannel;
 };
 
 const SupabaseContext = createContext<Partial<ProviderProps>>({});
@@ -69,15 +81,21 @@ export const SupabaseProvider = ({ children }: any) => {
   }, []);
 
   const setRealtimeAuth = async () => {
-    const clerkToken = await window.Clerk.session?.getToken({
-      template: "supabase",
-    });
-
-    client.realtime.setAuth(clerkToken!);
+    console.log("Setting realtime auth...");
+    try {
+      const clerkToken = await window.Clerk.session?.getToken({
+        template: "supabase",
+      });
+      console.log("Clerk token obtained:", clerkToken ? "Yes" : "No");
+      supabase.realtime.setAuth(clerkToken!);
+      console.log("Realtime auth set successfully");
+    } catch (error) {
+      console.error("Error setting realtime auth:", error);
+    }
   };
 
   const createBoard = async (title: string, background: string) => {
-    const { data, error } = await client
+    const { data, error } = await supabase
       .from(BOARDS_TABLE)
       .insert({ title, creator: userId, background });
 
@@ -89,17 +107,29 @@ export const SupabaseProvider = ({ children }: any) => {
   };
 
   const getBoards = async () => {
-    const { data } = await client
+    const { data, error } = await supabase
       .from(USER_BOARDS_TABLE)
-      .select(`boards ( title, id, background )`)
+      .select(`boards ( title, id, background, creator )`)
       .eq("user_id", userId);
-    const boards = data?.map((b: any) => b.boards);
 
-    return boards || [];
+    if (error) {
+      console.error("Error fetching boards:", error);
+      return [];
+    }
+
+    const boards =
+      data?.map((b: any) => ({
+        ...b.boards,
+        canDelete: b.boards.creator === userId,
+      })) || [];
+
+    console.log("Fetched boards:", boards);
+
+    return boards;
   };
 
   const getBoardInfo = async (boardId: string) => {
-    const { data } = await client
+    const { data } = await supabase
       .from(BOARDS_TABLE)
       .select(`*, users (first_name)`)
       .match({ id: boardId })
@@ -108,7 +138,7 @@ export const SupabaseProvider = ({ children }: any) => {
   };
 
   const updateBoard = async (board: Board) => {
-    const { data } = await client
+    const { data } = await supabase
       .from(BOARDS_TABLE)
       .update({ title: board.title })
       .match({ id: board.id })
@@ -119,12 +149,27 @@ export const SupabaseProvider = ({ children }: any) => {
   };
 
   const deleteBoard = async (id: string) => {
-    return await client.from(BOARDS_TABLE).delete().match({ id });
+    console.log(`Attempting to delete board with ID: ${id}`);
+    const { data, error } = await supabase
+      .from(BOARDS_TABLE)
+      .delete()
+      .eq("id", id);
+
+    if (error) {
+      console.error("Error in deleteBoard:", error);
+      return { error };
+    }
+
+    if (data && data.length === 0) {
+      return { error: { message: "Board not found" } };
+    }
+
+    return { data };
   };
 
   // CRUD Lists
   const getBoardLists = async (boardId: string) => {
-    const lists = await client
+    const lists = await supabase
       .from(LISTS_TABLE)
       .select("*")
       .eq("board_id", boardId)
@@ -134,7 +179,7 @@ export const SupabaseProvider = ({ children }: any) => {
   };
 
   const addBoardList = async (boardId: string, title: string, position = 0) => {
-    return await client
+    return await supabase
       .from(LISTS_TABLE)
       .insert({ board_id: boardId, position, title })
       .select("*")
@@ -142,7 +187,7 @@ export const SupabaseProvider = ({ children }: any) => {
   };
 
   const updateBoardList = async (list: TaskList, newname: string) => {
-    return await client
+    return await supabase
       .from(LISTS_TABLE)
       .update({
         title: newname,
@@ -153,7 +198,7 @@ export const SupabaseProvider = ({ children }: any) => {
   };
 
   const deleteBoardList = async (id: string) => {
-    return await client.from(LISTS_TABLE).delete().match({ id: id });
+    return await supabase.from(LISTS_TABLE).delete().match({ id: id });
   };
 
   // CRUD Cards
@@ -164,7 +209,7 @@ export const SupabaseProvider = ({ children }: any) => {
     position = 0,
     image_url: string | null = null
   ) => {
-    return await client
+    return await supabase
       .from(CARDS_TABLE)
       .insert({
         board_id: boardId,
@@ -178,54 +223,165 @@ export const SupabaseProvider = ({ children }: any) => {
   };
 
   const getListCards = async (listId: string) => {
-    const lists = await client
+    const { data, error } = await supabase
       .from(CARDS_TABLE)
-      .select("*")
+      .select(
+        `
+      *,
+      card_assignments(
+        user_id,
+        users(id, first_name, email, avatar_url)
+      )
+    `
+      )
       .eq("list_id", listId)
-      .eq("done", false)
       .order("position");
 
-    return lists.data || [];
+    if (error) {
+      console.error("Error fetching list cards:", error);
+      return [];
+    }
+
+    return data.map((card) => ({
+      ...card,
+      assigned_users: card.card_assignments.map((ca) => ca.users),
+    }));
   };
 
-  const updateCard = async (task: Task) => {
-    return await client
-      .from(CARDS_TABLE)
-      .update({
-        title: task.title,
-        description: task.description,
-        done: task.done,
-        position: task.position,
-      })
-      .match({ id: task.id });
+  const updateCard = async (card: any) => {
+    console.log("SupabaseContext: Updating card:", card);
+
+    try {
+      const { data, error } = await supabase
+        .from("cards")
+        .update({
+          title: card.title,
+          description: card.description,
+          start_date: card.start_date,
+          end_date: card.end_date,
+          currency: card.currency,
+          amount: card.amount,
+        })
+        .eq("id", card.id)
+        .select()
+        .single();
+
+      if (error) {
+        console.error("SupabaseContext: Error updating card:", error);
+        return { error };
+      }
+
+      console.log("SupabaseContext: Updated card data:", data);
+      return { data };
+    } catch (e) {
+      console.error(
+        "SupabaseContext: Exception caught while updating card:",
+        e
+      );
+      return { error: e };
+    }
   };
 
-  const assignCard = async (cardId: string, userId: string) => {
-    return await client
-      .from(CARDS_TABLE)
-      .update({ assigned_to: userId })
-      .match({ id: cardId })
-      .select("*, users (first_name, email, avatar_url)")
-      .single();
+  const assignCard = async (cardId: string | number, userIds: string[]) => {
+    console.log("Assigning card:", cardId, "to users:", userIds);
+
+    try {
+      // Get current assignments
+      const { data: currentAssignments, error: fetchError } = await supabase
+        .from("card_assignments")
+        .select("user_id")
+        .eq("card_id", cardId);
+
+      if (fetchError) throw fetchError;
+
+      const currentUserIds = currentAssignments.map((a) => a.user_id);
+      const userIdsToAdd = userIds.filter((id) => !currentUserIds.includes(id));
+      const userIdsToRemove = currentUserIds.filter(
+        (id) => !userIds.includes(id)
+      );
+
+      // Add new assignments
+      if (userIdsToAdd.length > 0) {
+        const { error: insertError } = await supabase
+          .from("card_assignments")
+          .insert(
+            userIdsToAdd.map((userId) => ({ card_id: cardId, user_id: userId }))
+          );
+
+        if (insertError) throw insertError;
+      }
+
+      // Remove old assignments
+      if (userIdsToRemove.length > 0) {
+        const { error: deleteError } = await supabase
+          .from("card_assignments")
+          .delete()
+          .eq("card_id", cardId)
+          .in("user_id", userIdsToRemove);
+
+        if (deleteError) throw deleteError;
+      }
+
+      // Fetch updated assignments
+      const { data: updatedAssignments, error: selectError } = await supabase
+        .from("card_assignments")
+        .select("*, users(id, first_name, email, avatar_url)")
+        .eq("card_id", cardId);
+
+      if (selectError) throw selectError;
+
+      return {
+        data: updatedAssignments.map((a) => ({
+          ...a,
+          user: a.users,
+        })),
+        error: null,
+      };
+    } catch (error) {
+      console.error("Error assigning users to card:", error);
+      return { data: null, error };
+    }
   };
 
   const deleteCard = async (id: string) => {
-    return await client.from(CARDS_TABLE).delete().match({ id: id });
+    return await supabase.from(CARDS_TABLE).delete().match({ id: id });
   };
 
   const getCardInfo = async (id: string) => {
-    const { data } = await client
+    const { data, error } = await supabase
       .from(CARDS_TABLE)
-      .select(`*, users (*), boards(*)`)
+      .select(
+        `
+        *,
+        card_assignments(
+          user_id,
+          users(id, first_name, email, avatar_url)
+        ),
+        boards(*)
+      `
+      )
       .match({ id })
       .single();
-    return data;
+
+    if (error) {
+      console.error("Error fetching card info:", error);
+      return null;
+    }
+
+    return {
+      ...data,
+      assigned_users: data.card_assignments.map((ca) => ca.users),
+      start_date: data.start_date,
+      end_date: data.end_date,
+      currency: data.currency,
+      amount: data.amount,
+    };
   };
 
   const findUsers = async (search: string) => {
     console.log("Searching for users with email:", search);
     // Use the search_users stored procedure to find users by email
-    const { data, error } = await client.rpc("search_users", {
+    const { data, error } = await supabase.rpc("search_users", {
       search: search,
     });
     console.log("Found errors:", data, error);
@@ -233,14 +389,14 @@ export const SupabaseProvider = ({ children }: any) => {
   };
 
   const addUserToBoard = async (boardId: string, userId: string) => {
-    return await client.from(USER_BOARDS_TABLE).insert({
+    return await supabase.from(USER_BOARDS_TABLE).insert({
       user_id: userId,
       board_id: boardId,
     });
   };
 
   const getBoardMember = async (boardId: string) => {
-    const { data } = await client
+    const { data } = await supabase
       .from(USER_BOARDS_TABLE)
       .select("users(*)")
       .eq("board_id", boardId);
@@ -249,28 +405,47 @@ export const SupabaseProvider = ({ children }: any) => {
     return members;
   };
 
-  const getRealtimeCardSubscription = (
-    id: string,
-    handleRealtimeChanges: (update: RealtimePostgresChangesPayload<any>) => void
-  ) => {
-    console.log("Creating a realtime connection...");
+  const getRealtimeCardSubscription = useCallback(
+    (
+      listId: number,
+      callback: (payload: RealtimePostgresChangesPayload<any>) => void
+    ) => {
+      console.log(`Setting up realtime subscription for list ${listId}`);
 
-    return client
-      .channel(`card-changes-${id}`)
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: CARDS_TABLE },
-        handleRealtimeChanges
-      )
-      .subscribe();
-  };
+      const channel = supabase
+        .channel(`list_${listId}`)
+        .on(
+          "postgres_changes",
+          {
+            event: "*",
+            schema: "public",
+            table: "cards",
+            filter: `list_id=eq.${listId}`,
+          },
+          (payload) => {
+            console.log(
+              `Received realtime update for list ${listId}:`,
+              JSON.stringify(payload, null, 2)
+            );
+            callback(payload);
+          }
+        )
+        .subscribe((status) => {
+          console.log(`Subscription status for list ${listId}:`, status);
+        });
+
+      console.log(`Channel created for list ${listId}:`, channel);
+      return channel;
+    },
+    [supabase]
+  );
 
   const uploadFile = async (
     filePath: string,
     base64: string,
     contentType: string
   ) => {
-    const { data } = await client.storage
+    const { data } = await supabase.storage
       .from(FILES_BUCKET)
       .upload(filePath, decode(base64), { contentType });
 
@@ -278,7 +453,7 @@ export const SupabaseProvider = ({ children }: any) => {
   };
 
   const getFileFromPath = async (path: string) => {
-    const { data } = await client.storage
+    const { data } = await supabase.storage
       .from(FILES_BUCKET)
       .createSignedUrl(path, 60 * 60, {
         transform: {
@@ -290,7 +465,7 @@ export const SupabaseProvider = ({ children }: any) => {
   };
 
   const setUserPushToken = async (token: string) => {
-    const { data, error } = await client
+    const { data, error } = await supabase
       .from(USERS_TABLE)
       .upsert({ id: userId, push_token: token });
 
@@ -299,6 +474,61 @@ export const SupabaseProvider = ({ children }: any) => {
     }
 
     return data;
+  };
+
+  const updateBoardMembers = async (
+    boardId: string,
+    memberIdToRemove: string
+  ) => {
+    const { data, error } = await supabase
+      .from(USER_BOARDS_TABLE)
+      .delete()
+      .match({ board_id: boardId, user_id: memberIdToRemove });
+
+    if (error) {
+      console.error("Error removing board member:", error);
+      throw error;
+    }
+
+    return data;
+  };
+
+  const leaveBoard = async (boardId: string) => {
+    const { data, error } = await supabase
+      .from(USER_BOARDS_TABLE)
+      .delete()
+      .match({ board_id: boardId, user_id: userId });
+
+    if (error) {
+      console.error("Error in leaveBoard:", error);
+      return { error };
+    }
+
+    return { data };
+  };
+
+  const subscribeToCardChanges = (
+    boardId: string,
+    callback: (payload: any) => void
+  ) => {
+    const channel = supabase
+      .channel(`public:cards:board_id=eq.${boardId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "cards",
+          filter: `board_id=eq.${boardId}`,
+        },
+        (payload) => {
+          console.log("Change received!", payload);
+          callback(payload);
+        }
+      )
+      .subscribe();
+
+    return channel;
   };
 
   const value = {
@@ -325,6 +555,9 @@ export const SupabaseProvider = ({ children }: any) => {
     uploadFile,
     getFileFromPath,
     setUserPushToken,
+    updateBoardMembers,
+    leaveBoard,
+    subscribeToCardChanges,
   };
 
   return (

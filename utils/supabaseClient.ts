@@ -12,13 +12,17 @@ declare global {
     };
   }
 }
+
 function createClerkSupabaseClient() {
-  return createClient(supabaseUrl, supabaseAnonKey, {
+  console.log("Creating Supabase client...");
+  const client = createClient(supabaseUrl, supabaseAnonKey, {
     global: {
       fetch: async (url, options = {}) => {
+        console.log("Fetching with Clerk token...");
         const clerkToken = await window.Clerk.session?.getToken({
           template: "supabase",
         });
+        console.log("Clerk token obtained:", clerkToken ? "Yes" : "No");
 
         const headers = new Headers(options?.headers);
         headers.set("Authorization", `Bearer ${clerkToken}`);
@@ -30,6 +34,8 @@ function createClerkSupabaseClient() {
       },
     },
   });
+  console.log("Supabase client created successfully");
+  return client;
 }
 
 export const client = createClerkSupabaseClient();

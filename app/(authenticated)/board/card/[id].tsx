@@ -1,53 +1,60 @@
-import { useSupabase } from "@/context/SupabaseContext";
-import { Board, Task, User } from "@/types/enums";
-import { Ionicons } from "@expo/vector-icons";
-import { Stack, useLocalSearchParams, useRouter } from "expo-router";
-import { useState, useEffect, useRef, useMemo, useCallback } from "react";
+import React, {
+  useState,
+  useEffect,
+  useRef,
+  useMemo,
+  useCallback,
+} from "react";
 import {
   View,
   Text,
-  Image,
   TouchableOpacity,
   TextInput,
   StyleSheet,
-  Button,
   FlatList,
+  ScrollView,
+  Platform,
 } from "react-native";
+import { useLocalSearchParams, useRouter } from "expo-router";
+import { Ionicons } from "@expo/vector-icons";
+import { useSupabase } from "@/context/SupabaseContext";
 import { Colors } from "@/constants/Colors";
 import {
-  BottomSheetBackdrop,
   BottomSheetModal,
   BottomSheetModalProvider,
+  BottomSheetBackdrop,
 } from "@gorhom/bottom-sheet";
-import { DefaultTheme } from "@react-navigation/native";
-import UserListItem from "@/components/UserListItem";
+import UserAvatar from "@/components/User/UserAvatar";
+import UserListItem from "@/components/User/UserListItem";
+import Swipeable from "react-native-gesture-handler/Swipeable";
+import { RectButton } from "react-native-gesture-handler";
+import Animated, { FadeInRight } from "react-native-reanimated";
+import { WebView } from "react-native-webview";
+import { DatePickerModal, TimePickerModal } from "react-native-paper-dates";
+import { en, registerTranslation } from "react-native-paper-dates";
+
+registerTranslation("en", en);
 
 const Page = () => {
   const { id } = useLocalSearchParams<{ id: string }>();
+  const { getCardInfo, getBoardMember, updateCard, assignCard } = useSupabase();
+  const router = useRouter();
+  const [card, setCard] = useState<any>(null);
+  const [member, setMember] = useState<any[]>([]);
+  const [selectedUsers, setSelectedUsers] = useState<any[]>([]);
+  const [startDate, setStartDate] = useState<Date | undefined>(undefined);
+  const [endDate, setEndDate] = useState<Date | undefined>(undefined);
+  const [currency, setCurrency] = useState("");
+  const [amount, setAmount] = useState("");
+  const [isStartDatePickerOpen, setIsStartDatePickerOpen] = useState(false);
+  const [isEndDatePickerOpen, setIsEndDatePickerOpen] = useState(false);
+  const [visible, setVisible] = useState(false);
+  const [visibleTime, setVisibleTime] = useState(false);
+  const [openStartDate, setOpenStartDate] = useState(false);
+  const [openEndDate, setOpenEndDate] = useState(false);
 
   const bottomSheetModalRef = useRef<BottomSheetModal>(null);
   const snapPoints = useMemo(() => ["60%"], []);
-
-  const {
-    getCardInfo,
-    getBoardMember,
-    getFileFromPath,
-    updateCard,
-    assignCard,
-  } = useSupabase();
-
-  const router = useRouter();
-  const [card, setCard] = useState<Task>();
-  const [member, setMember] = useState<User[]>();
-  const [imagePath, setImagePath] = useState<string>("");
-
-  if (card?.image_url) {
-    getFileFromPath!(card.image_url).then((path) => {
-      if (path) {
-        setImagePath(path);
-      }
-    });
-  }
 
   useEffect(() => {
     if (!id) return;
@@ -56,195 +63,440 @@ const Page = () => {
 
   const loadInfo = async () => {
     if (!id) return;
-
     const data = await getCardInfo!(id);
-    console.log("🚀 ~ loadInfo ~ cardData:", data);
     setCard(data);
+    setSelectedUsers(data.assigned_users || []);
+    setStartDate(data.start_date ? new Date(data.start_date) : undefined);
+    setEndDate(data.end_date ? new Date(data.end_date) : undefined);
+    setCurrency(data.currency || "");
+    setAmount(data.amount ? data.amount.toString() : "");
 
-    const member = await getBoardMember!(data.board_id);
-    console.log("🚀 ~ loadInfo ~ member:", member);
-    setMember(member);
+    const boardMembers = await getBoardMember!(data.board_id);
+    setMember(boardMembers);
   };
 
-  const saveAndClose = () => {
-    updateCard!(card!);
-    router.back();
+  const handleSaveChanges = async () => {
+    if (!card) return;
+
+    const updatedCard = {
+      id: card.id,
+      title: card.title,
+      description: card.description,
+      start_date: startDate?.toISOString(),
+      end_date: endDate?.toISOString(),
+      currency: currency,
+      amount: parseFloat(amount) || 0,
+    };
+
+    const { error } = await updateCard!(updatedCard);
+    if (error) {
+      console.error("Failed to update card:", error);
+      // Handle error (e.g., show an alert)
+    } else {
+      console.log("Card updated successfully");
+
+      // Update assigned users separately
+      if (selectedUsers && selectedUsers.length > 0) {
+        const { error: assignError } = await assignCard!(
+          card.id,
+          selectedUsers.map((user) => user.id)
+        );
+
+        if (assignError) {
+          console.error("Failed to update assigned users:", assignError);
+          // Handle error (e.g., show an alert)
+        } else {
+          console.log("Assigned users updated successfully");
+        }
+      }
+
+      // Navigate back to the boards page
+      router.back();
+    }
   };
 
-  const onArchiveCard = () => {
-    updateCard!({ ...card!, done: true });
-    router.back();
-  };
+  const onAssignUsers = async () => {
+    const { data, error } = await assignCard!(
+      card.id,
+      selectedUsers.map((u) => u.id)
+    );
 
-  const onAssignUser = async (user: User) => {
-    const { data, error } = await assignCard!(card!.id, user.id);
+    if (error) {
+      console.error("Error assigning users:", error);
+      return;
+    }
 
-    setCard(data);
+    setCard((prevCard) => ({
+      ...prevCard,
+      assigned_users: selectedUsers,
+    }));
     bottomSheetModalRef.current?.close();
+  };
+
+  const toggleUserSelection = (user: any) => {
+    setSelectedUsers((prev) =>
+      prev.some((u) => u.id === user.id)
+        ? prev.filter((u) => u.id !== user.id)
+        : [...prev, user]
+    );
   };
 
   const renderBackdrop = useCallback(
     (props: any) => (
       <BottomSheetBackdrop
-        opacity={0.2}
         appearsOnIndex={0}
         disappearsOnIndex={-1}
         {...props}
-        onPress={() => bottomSheetModalRef.current?.close()}
       />
     ),
     []
   );
 
+  const handleCloseModal = () => {
+    bottomSheetModalRef.current?.close();
+  };
+
+  const renderRightActions = (
+    progress: any,
+    dragX: any,
+    onDelete: () => void
+  ) => {
+    return (
+      <TouchableOpacity style={styles.deleteAction} onPress={onDelete}>
+        <Animated.Text
+          entering={FadeInRight.duration(300)}
+          style={styles.deleteActionText}
+        >
+          Delete
+        </Animated.Text>
+      </TouchableOpacity>
+    );
+  };
+
+  const renderAssignedUser = ({ item }: { item: any }) => (
+    <Swipeable
+      renderRightActions={(progress, dragX) =>
+        renderRightActions(progress, dragX, () => removeAssignedUser(item.id))
+      }
+      rightThreshold={40}
+    >
+      <View style={styles.assignedUserItem}>
+        <UserListItem user={item} onPress={() => {}} selected={false} />
+      </View>
+    </Swipeable>
+  );
+
+  const removeAssignedUser = async (userId: string) => {
+    console.log("Removing user:", userId, "from card:", card.id);
+
+    const updatedUsers = selectedUsers.filter((user) => user.id !== userId);
+
+    try {
+      const { data, error } = await assignCard!(
+        card.id,
+        updatedUsers.map((u) => u.id)
+      );
+
+      if (error) throw error;
+
+      // Update local state
+      setSelectedUsers(updatedUsers);
+      setCard((prevCard) => ({
+        ...prevCard,
+        assigned_users: data || [],
+      }));
+
+      console.log("User removed successfully");
+    } catch (error) {
+      console.error("Error removing assigned user:", error);
+      // You might want to show an error message to the user here
+      // Alert.alert("Error", "Failed to remove user. Please try again.");
+    }
+  };
+
+  const onDismissStart = () => setOpenStartDate(false);
+  const onConfirmStart = ({ date }: { date?: Date }) => {
+    setOpenStartDate(false);
+    if (date) setStartDate(date);
+  };
+
+  const onDismissEnd = () => setOpenEndDate(false);
+  const onConfirmEnd = ({ date }: { date?: Date }) => {
+    setOpenEndDate(false);
+    if (date) setEndDate(date);
+  };
+
+  const formatDate = (date: Date | undefined) => {
+    return date ? date.toLocaleDateString() : "Select Date";
+  };
+
+  if (!card) {
+    return (
+      <View style={styles.container}>
+        <Text>Loading...</Text>
+      </View>
+    );
+  }
+
   return (
     <BottomSheetModalProvider>
-      <View style={{ flex: 1 }}>
-        <Stack.Screen
-          options={{
-            headerLeft: () => (
-              <TouchableOpacity onPress={saveAndClose}>
-                <Ionicons name="close" size={24} color={Colors.grey} />
-              </TouchableOpacity>
-            ),
-          }}
+      <ScrollView style={styles.container}>
+        <Text style={styles.sectionTitle}>Job Name:</Text>
+        <TextInput
+          style={styles.input}
+          value={card.title}
+          onChangeText={(text) => setCard({ ...card, title: text })}
+          placeholder="Card Title"
         />
-        {card && (
-          <>
-            {!card.image_url && (
-              <TextInput
-                style={styles.input}
-                value={card.title}
-                multiline
-                onChangeText={(text: string) =>
-                  setCard({ ...card, title: text })
-                }
-              ></TextInput>
-            )}
+        <Text style={styles.sectionTitle}>Job Description:</Text>
+        <TextInput
+          style={[styles.input, styles.jobDescription]}
+          value={card.description}
+          onChangeText={(text) => setCard({ ...card, description: text })}
+          placeholder="Enter job description"
+          multiline
+        />
 
-            <TextInput
-              style={[styles.input, { minHeight: 100 }]}
-              value={card.description || ""}
-              multiline
-              placeholder="Add a description"
-              onChangeText={(text: string) =>
-                setCard({ ...card, description: text })
-              }
-            ></TextInput>
-
-            {imagePath && (
-              <>
-                {card.image_url && (
-                  <Image
-                    source={{ uri: imagePath }}
-                    style={{
-                      width: "100%",
-                      height: 400,
-                      resizeMode: "contain",
-                      borderRadius: 4,
-                      backgroundColor: "#f3f3f3",
-                    }}
-                  />
-                )}
-              </>
-            )}
-
-            <View style={styles.memberContainer}>
-              <Ionicons name="person" size={24} color={Colors.grey} />
-
-              <TouchableOpacity
-                style={{ flex: 1 }}
-                onPress={() => bottomSheetModalRef.current?.present()}
-              >
-                {!card.assigned_to ? (
-                  <Text>Assign...</Text>
-                ) : (
-                  <Text>
-                    Assigned to {card.users?.first_name || card.users?.email}
-                  </Text>
-                )}
-              </TouchableOpacity>
-            </View>
-
-            <TouchableOpacity onPress={onArchiveCard} style={styles.btn}>
-              <Text style={styles.btnText}>Archive</Text>
+        <View style={styles.dateRow}>
+          <View style={styles.dateContainer}>
+            <Text style={styles.dateLabel}>Start:</Text>
+            <TouchableOpacity
+              onPress={() => setOpenStartDate(true)}
+              style={styles.dateButton}
+            >
+              <Text>{formatDate(startDate)}</Text>
             </TouchableOpacity>
-          </>
-        )}
-        <BottomSheetModal
-          ref={bottomSheetModalRef}
-          index={0}
-          snapPoints={snapPoints}
-          handleStyle={{
-            backgroundColor: DefaultTheme.colors.background,
-            borderRadius: 12,
-          }}
-          backdropComponent={renderBackdrop}
-          enableOverDrag={false}
-          enablePanDownToClose
-        >
-          <View style={styles.bottomContainer}>
-            <View
-              style={{
-                flexDirection: "row",
-                alignItems: "center",
-                paddingHorizontal: 10,
-              }}
-            >
-              <Button
-                title="Cancel"
-                onPress={() => bottomSheetModalRef.current?.close()}
-              />
-            </View>
-            <View
-              style={{
-                backgroundColor: "#fff",
-                paddingHorizontal: 16,
-                paddingVertical: 8,
-              }}
-            >
-              <FlatList
-                data={member}
-                keyExtractor={(item) => `${item.id}`}
-                renderItem={(item) => (
-                  <UserListItem onPress={onAssignUser} element={item} />
-                )}
-                contentContainerStyle={{ gap: 8 }}
-              />
-            </View>
           </View>
-        </BottomSheetModal>
-      </View>
+          <View style={styles.dateContainer}>
+            <Text style={styles.dateLabel}>End:</Text>
+            <TouchableOpacity
+              onPress={() => setOpenEndDate(true)}
+              style={styles.dateButton}
+            >
+              <Text>{formatDate(endDate)}</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        <Text style={styles.sectionTitle}>Currency:</Text>
+        <TextInput
+          style={styles.input}
+          value={currency}
+          onChangeText={setCurrency}
+          placeholder="Enter currency"
+        />
+
+        <Text style={styles.sectionTitle}>Amount:</Text>
+        <TextInput
+          style={styles.input}
+          value={amount}
+          onChangeText={setAmount}
+          placeholder="Enter amount"
+          keyboardType="numeric"
+        />
+
+        <View style={styles.assignedUsersSection}>
+          <Text style={styles.sectionTitle}>Assigned Users:</Text>
+          {selectedUsers && selectedUsers.length > 0 ? (
+            <FlatList
+              data={selectedUsers}
+              renderItem={renderAssignedUser}
+              keyExtractor={(item) => item.id}
+              horizontal={false}
+              scrollEnabled={false}
+            />
+          ) : (
+            <Text>No users assigned</Text>
+          )}
+          <TouchableOpacity
+            style={styles.addUserButton}
+            onPress={() => bottomSheetModalRef.current?.present()}
+          >
+            <Ionicons name="add-circle-outline" size={24} color={Colors.grey} />
+            <Text style={styles.addUserText}>Add User</Text>
+          </TouchableOpacity>
+        </View>
+        <TouchableOpacity style={styles.saveButton} onPress={handleSaveChanges}>
+          <Text style={styles.saveButtonText}>Save Changes</Text>
+        </TouchableOpacity>
+      </ScrollView>
+
+      <DatePickerModal
+        locale="en"
+        mode="single"
+        visible={openStartDate}
+        onDismiss={onDismissStart}
+        date={startDate}
+        onConfirm={onConfirmStart}
+      />
+
+      <DatePickerModal
+        locale="en"
+        mode="single"
+        visible={openEndDate}
+        onDismiss={onDismissEnd}
+        date={endDate}
+        onConfirm={onConfirmEnd}
+      />
+
+      <BottomSheetModal
+        ref={bottomSheetModalRef}
+        index={0}
+        snapPoints={snapPoints}
+        backdropComponent={renderBackdrop}
+        enablePanDownToClose={true}
+      >
+        <View style={styles.bottomSheet}>
+          <View style={styles.modalHeader}>
+            <Text style={styles.modalTitle}>Assign Users</Text>
+            <TouchableOpacity
+              onPress={() => bottomSheetModalRef.current?.close()}
+            >
+              <Ionicons name="close" size={24} color={Colors.grey} />
+            </TouchableOpacity>
+          </View>
+          <FlatList
+            data={member}
+            renderItem={({ item }) => (
+              <UserListItem
+                user={item}
+                onPress={() => toggleUserSelection(item)}
+                selected={selectedUsers.some((u) => u.id === item.id)}
+              />
+            )}
+            keyExtractor={(item) => item.id}
+          />
+          <TouchableOpacity style={styles.assignButton} onPress={onAssignUsers}>
+            <Text style={styles.assignButtonText}>Assign Users</Text>
+          </TouchableOpacity>
+        </View>
+      </BottomSheetModal>
     </BottomSheetModalProvider>
   );
 };
 
 const styles = StyleSheet.create({
-  input: {
-    padding: 8,
-    backgroundColor: "#fff",
-    borderRadius: 4,
-    marginVertical: 8,
-  },
-  memberContainer: {
-    flexDirection: "row",
-    gap: 12,
-    padding: 8,
-    alignItems: "center",
-  },
-  btn: {
-    padding: 10,
-    borderRadius: 8,
-    alignItems: "center",
-    borderColor: "#fff",
-    borderWidth: 1,
-  },
-  btnText: {
-    fontSize: 18,
-  },
-  bottomContainer: {
-    backgroundColor: DefaultTheme.colors.background,
+  container: {
     flex: 1,
-    gap: 16,
+    padding: 16,
+  },
+  input: {
+    borderWidth: 1,
+    borderColor: Colors.lightGray,
+    borderRadius: 4,
+    padding: 8,
+    marginBottom: 16,
+  },
+  description: {
+    height: 100,
+    textAlignVertical: "top",
+  },
+  assignedUsersSection: {
+    marginBottom: 16,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: "bold",
+    marginBottom: 8,
+  },
+  assignedUserItem: {
+    marginBottom: 8,
+  },
+  addUserButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginTop: 8,
+  },
+  addUserText: {
+    marginLeft: 8,
+    color: Colors.grey,
+    fontSize: 16,
+  },
+  saveButton: {
+    backgroundColor: Colors.primary,
+    padding: 12,
+    borderRadius: 4,
+    alignItems: "center",
+  },
+  saveButtonText: {
+    color: "white",
+    fontSize: 16,
+    fontWeight: "bold",
+  },
+  bottomSheet: {
+    flex: 1,
+    padding: 16,
+  },
+  modalHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 16,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: "bold",
+  },
+  assignButton: {
+    backgroundColor: Colors.primary,
+    padding: 12,
+    borderRadius: 4,
+    alignItems: "center",
+    marginTop: 16,
+  },
+  assignButtonText: {
+    color: "white",
+    fontSize: 16,
+    fontWeight: "bold",
+  },
+  rightAction: {
+    alignItems: "center",
+    flexDirection: "row",
+    backgroundColor: "#dd2c00",
+    flex: 1,
+    justifyContent: "flex-end",
+  },
+  actionText: {
+    color: "white",
+    fontSize: 16,
+    backgroundColor: "transparent",
+    padding: 10,
+  },
+  deleteAction: {
+    backgroundColor: "red",
+    justifyContent: "center",
+    alignItems: "flex-end",
+    width: 100,
+    height: "100%",
+  },
+  deleteActionText: {
+    color: "white",
+    fontWeight: "600",
+    padding: 20,
+  },
+  jobDescription: {
+    height: 200,
+    textAlignVertical: "top",
+  },
+  dateRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginBottom: 16,
+  },
+  dateContainer: {
+    flex: 1,
+    marginRight: 8,
+  },
+  dateLabel: {
+    fontSize: 16,
+    marginBottom: 4,
+  },
+  dateButton: {
+    borderRadius: 4,
+    padding: 8,
+    borderWidth: 1,
+    borderColor: Colors.lightGray,
   },
 });
+
 export default Page;

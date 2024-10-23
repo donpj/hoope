@@ -1,3 +1,4 @@
+import React from "react";
 import { Colors } from "@/constants/Colors";
 import { useSupabase } from "@/context/SupabaseContext";
 import { Task, TaskList } from "@/types/enums";
@@ -9,6 +10,8 @@ import {
   StyleSheet,
   TouchableOpacity,
   TextInput,
+  ScrollView,
+  RefreshControl,
 } from "react-native";
 import DraggableFlatList, {
   DragEndParams,
@@ -21,14 +24,22 @@ import {
 } from "@gorhom/bottom-sheet";
 import ListItem from "@/components/Board/ListItem";
 import { RealtimePostgresChangesPayload } from "@supabase/supabase-js";
+import { RealtimeChannel } from "@supabase/supabase-js";
+import { useFocusEffect } from "@react-navigation/native";
 
 export interface ListViewProps {
   taskList: TaskList;
   onDelete: () => void;
   onOpenModal: () => void;
+  maxHeight: number;
 }
 
-const ListView = ({ taskList, onDelete, onOpenModal }: ListViewProps) => {
+const ListView: React.FC<ListViewProps> = ({
+  taskList,
+  onDelete,
+  onOpenModal,
+  maxHeight,
+}) => {
   const {
     getListCards,
     addListCard,
@@ -40,54 +51,59 @@ const ListView = ({ taskList, onDelete, onOpenModal }: ListViewProps) => {
   const [isAdding, setIsAdding] = useState(false);
   const [newTask, setNewTask] = useState("");
   const [tasks, setTasks] = useState<any[]>([]);
+  const [refreshing, setRefreshing] = useState(false);
 
   const bottomSheetModalRef = useRef<BottomSheetModal>(null);
   const snapPoints = useMemo(() => ["40%"], []);
 
   const [listName, setListName] = useState(taskList.title);
 
-  useEffect(() => {
-    loadListTasks();
+  const loadListTasks = useCallback(async () => {
+    const data = await getListCards!(taskList.id);
+    setTasks(data);
+  }, [getListCards, taskList.id]);
 
-    const subscription = getRealtimeCardSubscription!(
-      taskList.id,
-      handleRealtimeChanges
-    );
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await loadListTasks();
+    setRefreshing(false);
+  }, [loadListTasks]);
+
+  useFocusEffect(
+    useCallback(() => {
+      onRefresh();
+    }, [onRefresh])
+  );
+
+  useEffect(() => {
+    console.log("Setting up real-time subscription for list:", taskList.id);
+    let subscription: RealtimeChannel;
+
+    try {
+      subscription = getRealtimeCardSubscription!(
+        taskList.id,
+        handleRealtimeChanges
+      );
+      console.log("Subscription created successfully:", subscription);
+    } catch (error) {
+      console.error("Error creating subscription:", error);
+    }
 
     return () => {
-      subscription.unsubscribe();
+      console.log("Cleaning up real-time subscription for list:", taskList.id);
+      if (subscription) {
+        subscription.unsubscribe();
+      }
     };
   }, [taskList.id]);
 
-  const handleRealtimeChanges = (
-    update: RealtimePostgresChangesPayload<any>
-  ) => {
-    console.log("REALTIME UPDATE:", update);
-    const record = update.new?.id ? update.new : update.old;
-    const event = update.eventType;
-
-    if (!record) return;
-
-    if (event === "INSERT") {
-      setTasks((prev) => [...prev, record]);
-    } else if (event === "UPDATE") {
-      setTasks((prev) =>
-        prev
-          .map((task) => (task.id === record.id ? record : task))
-          .filter((task) => !task.done)
-          .sort((a, b) => a.position - b.position)
-      );
-    } else if (event === "DELETE") {
-      setTasks((prev) => prev.filter((task) => task.id !== record.id));
-    } else {
-      console.log("Unhandled event", event);
-    }
-  };
-
-  const loadListTasks = async () => {
-    const data = await getListCards!(taskList.id);
-    setTasks(data);
-  };
+  const handleRealtimeChanges = useCallback(
+    (update: RealtimePostgresChangesPayload<any>) => {
+      console.log("Received real-time update:", update);
+      loadListTasks();
+    },
+    [loadListTasks]
+  );
 
   const onDeleteList = async () => {
     await deleteBoardList!(taskList.id);
@@ -139,7 +155,7 @@ const ListView = ({ taskList, onDelete, onOpenModal }: ListViewProps) => {
 
   return (
     <BottomSheetModalProvider>
-      <View style={styles.listContainer}>
+      <View style={[styles.listContainer, { maxHeight }]}>
         <View style={styles.listNameContainer}>
           <Text style={styles.listTitle}>{taskList.title}</Text>
           <TouchableOpacity onPress={onOpenModal}>
@@ -166,6 +182,9 @@ const ListView = ({ taskList, onDelete, onOpenModal }: ListViewProps) => {
             activationDistance={10}
             containerStyle={styles.flatListContainer}
             contentContainerStyle={styles.flatListContentContainer}
+            refreshControl={
+              <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+            }
           />
           {isAdding && (
             <View style={styles.inputContainer}>
@@ -186,8 +205,8 @@ const ListView = ({ taskList, onDelete, onOpenModal }: ListViewProps) => {
                 style={styles.addCardButton}
                 onPress={() => setIsAdding(true)}
               >
-                <Ionicons name="add" size={14} color={Colors.primary} />
-                <Text style={styles.addCardText}>Add card</Text>
+                <Ionicons name="add" size={14} color={Colors.fontDark} />
+                <Text style={styles.addCardText}>Add Job</Text>
               </TouchableOpacity>
             ) : (
               <>
@@ -208,15 +227,19 @@ const ListView = ({ taskList, onDelete, onOpenModal }: ListViewProps) => {
 
 const styles = StyleSheet.create({
   listContainer: {
+    //flex: 1,
     //backgroundColor: "transparent",
     backgroundColor: Colors.background,
     borderRadius: 12,
     marginBottom: 16,
+    //marginLeft: 8,
+    /*
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
     elevation: 3,
+    */
   },
   listNameContainer: {
     flexDirection: "row",
@@ -228,7 +251,7 @@ const styles = StyleSheet.create({
     paddingTop: 12,
     paddingBottom: 12,
 
-    //borderRadius: 12,
+    borderRadius: 12,
     borderBottomColor: Colors.lightGray,
   },
   listTitle: {
@@ -237,24 +260,28 @@ const styles = StyleSheet.create({
     color: Colors.light.text,
   },
   cardsContainer: {
-    padding: 12,
+    padding: 0,
+    paddingTop: 10,
+    paddingBottom: 10,
+    //flex: 1,
   },
   flatListContainer: {
-    maxHeight: "80%",
+    //maxHeight: "80%",
   },
   flatListContentContainer: {
-    gap: 8,
-    paddingBottom: 1, // Add some padding at the bottom of the list
+    gap: 2,
+    //paddingBottom: 1, // Add some padding at the bottom of the list
   },
   inputContainer: {
     marginTop: 6, // Add space above the input
+    paddingHorizontal: 12,
     //marginBottom: 8, // Add space below the input
   },
   input: {
     padding: 12,
     backgroundColor: Colors.white,
     borderRadius: 8,
-    borderWidth: 1,
+    //borderWidth: 1,
     borderColor: Colors.lightGray,
     color: Colors.light.text,
   },
@@ -263,10 +290,12 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     alignItems: "center",
     marginTop: 12,
+    paddingHorizontal: 15,
   },
   addCardButton: {
     flexDirection: "row",
     alignItems: "center",
+    marginLeft: 10,
   },
   addCardText: {
     //color: Colors.primary,

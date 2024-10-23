@@ -58,9 +58,9 @@ const Layout = () => {
       <Stack.Screen
         name="board/card/[id]"
         options={{
-          presentation: "containedModal",
+          //presentation: "containedModal",
           title: "",
-          headerShadowVisible: false,
+          //headerShadowVisible: false,
           headerStyle: {
             backgroundColor: DefaultTheme.colors.background,
           },
