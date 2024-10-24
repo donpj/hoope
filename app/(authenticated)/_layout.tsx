@@ -3,6 +3,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { DefaultTheme } from "@react-navigation/native";
 import { Stack, useRouter } from "expo-router";
 import { TouchableOpacity } from "react-native";
+import CardHeader from "@/components/CustomHeaders/CardHeader";
 
 const Layout = () => {
   usePush();
@@ -58,9 +59,13 @@ const Layout = () => {
       <Stack.Screen
         name="board/card/[id]"
         options={{
-          //presentation: "containedModal",
+          presentation: "containedModal",
           title: "",
+
+          header: () => <CardHeader />,
+          headerTransparent: true,
           //headerShadowVisible: false,
+          //headerShown: false,
           headerStyle: {
             backgroundColor: DefaultTheme.colors.background,
           },

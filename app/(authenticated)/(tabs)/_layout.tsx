@@ -6,7 +6,7 @@ import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import Octicons from "@expo/vector-icons/Octicons";
 import { Image } from "react-native";
 import { BlurView } from "expo-blur";
-import CustomHeader from "@/components/CustomHeader";
+import PaymentsHeader from "@/components/CustomHeaders/PaymentsHeader";
 
 const Layout = () => {
   return (
@@ -59,7 +59,7 @@ const Layout = () => {
           tabBarIcon: ({ size, color }) => (
             <MaterialIcons name="account-balance" size={size} color={color} />
           ),
-          header: () => <CustomHeader />,
+          header: () => <PaymentsHeader />,
           headerTransparent: true,
         }}
       />
@@ -70,7 +70,7 @@ const Layout = () => {
           tabBarIcon: ({ size, color }) => (
             <Octicons name="arrow-switch" size={size} color={color} />
           ),
-          header: () => <CustomHeader />,
+          header: () => <PaymentsHeader />,
           headerTransparent: true,
         }}
       />

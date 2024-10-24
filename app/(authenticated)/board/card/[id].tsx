@@ -32,6 +32,7 @@ import Animated, { FadeInRight } from "react-native-reanimated";
 import { WebView } from "react-native-webview";
 import { DatePickerModal, TimePickerModal } from "react-native-paper-dates";
 import { en, registerTranslation } from "react-native-paper-dates";
+import { useHeaderHeight } from "@react-navigation/elements";
 
 registerTranslation("en", en);
 
@@ -237,10 +238,11 @@ const Page = () => {
       </View>
     );
   }
+  const headerHeight = useHeaderHeight();
 
   return (
     <BottomSheetModalProvider>
-      <ScrollView style={styles.container}>
+      <ScrollView style={[styles.container, { paddingTop: headerHeight }]}>
         <Text style={styles.sectionTitle}>Job Name:</Text>
         <TextInput
           style={styles.input}

@@ -9,7 +9,7 @@ import { useEffect, useState } from "react";
 import { client } from "@/utils/supabaseClient";
 import { useAuth } from "@clerk/clerk-expo";
 
-const CustomHeader = () => {
+const PaymentsHeader = () => {
   const { top } = useSafeAreaInsets();
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -148,4 +148,4 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
 });
-export default CustomHeader;
+export default PaymentsHeader;
