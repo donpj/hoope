@@ -14,6 +14,7 @@ import {
   FlatList,
   ScrollView,
   Platform,
+  SafeAreaView,
 } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
@@ -33,6 +34,8 @@ import { WebView } from "react-native-webview";
 import { DatePickerModal, TimePickerModal } from "react-native-paper-dates";
 import { en, registerTranslation } from "react-native-paper-dates";
 import { useHeaderHeight } from "@react-navigation/elements";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import CardHeader from "@/components/CustomHeaders/CardHeader";
 
 registerTranslation("en", en);
 
@@ -56,6 +59,8 @@ const Page = () => {
 
   const bottomSheetModalRef = useRef<BottomSheetModal>(null);
   const snapPoints = useMemo(() => ["60%"], []);
+
+  const insets = useSafeAreaInsets();
 
   useEffect(() => {
     if (!id) return;
@@ -242,137 +247,179 @@ const Page = () => {
 
   return (
     <BottomSheetModalProvider>
-      <ScrollView style={[styles.container, { paddingTop: headerHeight }]}>
-        <Text style={styles.sectionTitle}>Job Name:</Text>
-        <TextInput
-          style={styles.input}
-          value={card.title}
-          onChangeText={(text) => setCard({ ...card, title: text })}
-          placeholder="Card Title"
-        />
-        <Text style={styles.sectionTitle}>Job Description:</Text>
-        <TextInput
-          style={[styles.input, styles.jobDescription]}
-          value={card.description}
-          onChangeText={(text) => setCard({ ...card, description: text })}
-          placeholder="Enter job description"
-          multiline
-        />
-
-        <View style={styles.dateRow}>
-          <View style={styles.dateContainer}>
-            <Text style={styles.dateLabel}>Start:</Text>
-            <TouchableOpacity
-              onPress={() => setOpenStartDate(true)}
-              style={styles.dateButton}
-            >
-              <Text>{formatDate(startDate)}</Text>
-            </TouchableOpacity>
-          </View>
-          <View style={styles.dateContainer}>
-            <Text style={styles.dateLabel}>End:</Text>
-            <TouchableOpacity
-              onPress={() => setOpenEndDate(true)}
-              style={styles.dateButton}
-            >
-              <Text>{formatDate(endDate)}</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-
-        <Text style={styles.sectionTitle}>Currency:</Text>
-        <TextInput
-          style={styles.input}
-          value={currency}
-          onChangeText={setCurrency}
-          placeholder="Enter currency"
-        />
-
-        <Text style={styles.sectionTitle}>Amount:</Text>
-        <TextInput
-          style={styles.input}
-          value={amount}
-          onChangeText={setAmount}
-          placeholder="Enter amount"
-          keyboardType="numeric"
-        />
-
-        <View style={styles.assignedUsersSection}>
-          <Text style={styles.sectionTitle}>Assigned Users:</Text>
-          {selectedUsers && selectedUsers.length > 0 ? (
-            <FlatList
-              data={selectedUsers}
-              renderItem={renderAssignedUser}
-              keyExtractor={(item) => item.id}
-              horizontal={false}
-              scrollEnabled={false}
-            />
-          ) : (
-            <Text>No users assigned</Text>
-          )}
+      <View style={styles.container}>
+        {/* Fixed position icons */}
+        <View style={[styles.iconContainer, { top: insets.top }]}>
           <TouchableOpacity
-            style={styles.addUserButton}
-            onPress={() => bottomSheetModalRef.current?.present()}
+            onPress={() => {
+              console.log("Close button pressed");
+              router.back();
+            }}
+            style={styles.iconButton}
           >
-            <Ionicons name="add-circle-outline" size={24} color={Colors.grey} />
-            <Text style={styles.addUserText}>Add User</Text>
+            <Ionicons name="close" size={24} color="black" />
           </TouchableOpacity>
-        </View>
-        <TouchableOpacity style={styles.saveButton} onPress={handleSaveChanges}>
-          <Text style={styles.saveButtonText}>Save Changes</Text>
-        </TouchableOpacity>
-      </ScrollView>
-
-      <DatePickerModal
-        locale="en"
-        mode="single"
-        visible={openStartDate}
-        onDismiss={onDismissStart}
-        date={startDate}
-        onConfirm={onConfirmStart}
-      />
-
-      <DatePickerModal
-        locale="en"
-        mode="single"
-        visible={openEndDate}
-        onDismiss={onDismissEnd}
-        date={endDate}
-        onConfirm={onConfirmEnd}
-      />
-
-      <BottomSheetModal
-        ref={bottomSheetModalRef}
-        index={0}
-        snapPoints={snapPoints}
-        backdropComponent={renderBackdrop}
-        enablePanDownToClose={true}
-      >
-        <View style={styles.bottomSheet}>
-          <View style={styles.modalHeader}>
-            <Text style={styles.modalTitle}>Assign Users</Text>
+          <View style={styles.rightIcons}>
             <TouchableOpacity
-              onPress={() => bottomSheetModalRef.current?.close()}
+              onPress={() => console.log("Add button pressed")}
+              style={styles.iconButton}
             >
-              <Ionicons name="close" size={24} color={Colors.grey} />
+              <Ionicons name="add" size={24} color="black" />
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={() => console.log("More button pressed")}
+              style={styles.iconButton}
+            >
+              <Ionicons name="ellipsis-horizontal" size={24} color="black" />
             </TouchableOpacity>
           </View>
-          <FlatList
-            data={member}
-            renderItem={({ item }) => (
-              <UserListItem
-                user={item}
-                onPress={() => toggleUserSelection(item)}
-                selected={selectedUsers.some((u) => u.id === item.id)}
-              />
-            )}
-            keyExtractor={(item) => item.id}
-          />
-          <TouchableOpacity style={styles.assignButton} onPress={onAssignUsers}>
-            <Text style={styles.assignButtonText}>Assign Users</Text>
-          </TouchableOpacity>
         </View>
-      </BottomSheetModal>
+
+        {/* CardHeader with scrollable content */}
+        <CardHeader title={card?.title || "Card Details"}>
+          <ScrollView style={[styles.scrollView, { paddingTop: headerHeight }]}>
+            <Text style={styles.sectionTitle}>Job Name:</Text>
+            <TextInput
+              style={styles.input}
+              value={card.title}
+              onChangeText={(text) => setCard({ ...card, title: text })}
+              placeholder="Card Title"
+            />
+            <Text style={styles.sectionTitle}>Job Description:</Text>
+            <TextInput
+              style={[styles.input, styles.jobDescription]}
+              value={card.description}
+              onChangeText={(text) => setCard({ ...card, description: text })}
+              placeholder="Enter job description"
+              multiline
+            />
+
+            <View style={styles.dateRow}>
+              <View style={styles.dateContainer}>
+                <Text style={styles.dateLabel}>Start:</Text>
+                <TouchableOpacity
+                  onPress={() => setOpenStartDate(true)}
+                  style={styles.dateButton}
+                >
+                  <Text>{formatDate(startDate)}</Text>
+                </TouchableOpacity>
+              </View>
+              <View style={styles.dateContainer}>
+                <Text style={styles.dateLabel}>End:</Text>
+                <TouchableOpacity
+                  onPress={() => setOpenEndDate(true)}
+                  style={styles.dateButton}
+                >
+                  <Text>{formatDate(endDate)}</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+
+            <Text style={styles.sectionTitle}>Currency:</Text>
+            <TextInput
+              style={styles.input}
+              value={currency}
+              onChangeText={setCurrency}
+              placeholder="Enter currency"
+            />
+
+            <Text style={styles.sectionTitle}>Amount:</Text>
+            <TextInput
+              style={styles.input}
+              value={amount}
+              onChangeText={setAmount}
+              placeholder="Enter amount"
+              keyboardType="numeric"
+            />
+
+            <View style={styles.assignedUsersSection}>
+              <Text style={styles.sectionTitle}>Assigned Users:</Text>
+              {selectedUsers && selectedUsers.length > 0 ? (
+                <FlatList
+                  data={selectedUsers}
+                  renderItem={renderAssignedUser}
+                  keyExtractor={(item) => item.id}
+                  horizontal={false}
+                  scrollEnabled={false}
+                />
+              ) : (
+                <Text>No users assigned</Text>
+              )}
+              <TouchableOpacity
+                style={styles.addUserButton}
+                onPress={() => bottomSheetModalRef.current?.present()}
+              >
+                <Ionicons
+                  name="add-circle-outline"
+                  size={24}
+                  color={Colors.grey}
+                />
+                <Text style={styles.addUserText}>Add User</Text>
+              </TouchableOpacity>
+            </View>
+            <TouchableOpacity
+              style={styles.saveButton}
+              onPress={handleSaveChanges}
+            >
+              <Text style={styles.saveButtonText}>Save Changes</Text>
+            </TouchableOpacity>
+          </ScrollView>
+        </CardHeader>
+
+        <DatePickerModal
+          locale="en"
+          mode="single"
+          visible={openStartDate}
+          onDismiss={onDismissStart}
+          date={startDate}
+          onConfirm={onConfirmStart}
+        />
+
+        <DatePickerModal
+          locale="en"
+          mode="single"
+          visible={openEndDate}
+          onDismiss={onDismissEnd}
+          date={endDate}
+          onConfirm={onConfirmEnd}
+        />
+
+        <BottomSheetModal
+          ref={bottomSheetModalRef}
+          index={0}
+          snapPoints={snapPoints}
+          backdropComponent={renderBackdrop}
+          enablePanDownToClose={true}
+        >
+          <View style={styles.bottomSheet}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Assign Users</Text>
+              <TouchableOpacity
+                onPress={() => bottomSheetModalRef.current?.close()}
+              >
+                <Ionicons name="close" size={24} color={Colors.grey} />
+              </TouchableOpacity>
+            </View>
+            <FlatList
+              data={member}
+              renderItem={({ item }) => (
+                <UserListItem
+                  user={item}
+                  onPress={() => toggleUserSelection(item)}
+                  selected={selectedUsers.some((u) => u.id === item.id)}
+                />
+              )}
+              keyExtractor={(item) => item.id}
+            />
+            <TouchableOpacity
+              style={styles.assignButton}
+              onPress={onAssignUsers}
+            >
+              <Text style={styles.assignButtonText}>Assign Users</Text>
+            </TouchableOpacity>
+          </View>
+        </BottomSheetModal>
+      </View>
     </BottomSheetModalProvider>
   );
 };
@@ -380,7 +427,7 @@ const Page = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    padding: 16,
+    //padding: 16,
   },
   input: {
     borderWidth: 1,
@@ -498,6 +545,27 @@ const styles = StyleSheet.create({
     padding: 8,
     borderWidth: 1,
     borderColor: Colors.lightGray,
+  },
+  // Add these new styles for the icon buttons
+  iconContainer: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    position: "absolute",
+
+    left: 0,
+    right: 0,
+    zIndex: 1000,
+  },
+  rightIcons: {
+    flexDirection: "row",
+  },
+  iconButton: {
+    paddingHorizontal: 16,
+  },
+  scrollView: {
+    flex: 1,
+    padding: 16,
   },
 });
 

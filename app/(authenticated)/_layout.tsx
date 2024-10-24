@@ -62,10 +62,7 @@ const Layout = () => {
           presentation: "containedModal",
           title: "",
 
-          header: () => <CardHeader />,
-          headerTransparent: true,
-          //headerShadowVisible: false,
-          //headerShown: false,
+          headerShown: false,
           headerStyle: {
             backgroundColor: DefaultTheme.colors.background,
           },
